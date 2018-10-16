@@ -1,12 +1,31 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import os
+import sys
 from setuptools import setup
 from setuptools import find_packages
+from setuptools.command.install import install
+
+VERSION = '0.4.3'
 
 REQUIRES = [
     'requests==2.18.4',
     'retrying==1.3.3',
 ]
+
+
+class VerifyVersionCommand(install):
+    """Custom command to verify that the git tag matches our version"""
+    description = 'verify that the git tag matches our version'
+
+    def run(self):
+        tag = os.getenv('CIRCLE_TAG')
+
+        if tag != VERSION:
+            info = "Git tag: {0} does not match the version of this app: {1}".format(
+                tag, VERSION
+            )
+            sys.exit(info)
 
 
 def read(fname):
@@ -17,7 +36,7 @@ def read(fname):
 
 setup(
     name='directaccess',
-    version='0.4.2',
+    version=VERSION,
     description='Drillinginfo Direct Access API Python Client',
     long_description=read('README.md'),
     author='Cole Howard',
