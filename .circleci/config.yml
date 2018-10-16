@@ -7,7 +7,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }
+          key: v1-dependency-cache-{{ checksum "setup.py" }}
 
       - run:
           name: install python dependencies
