@@ -4,7 +4,7 @@ A thin wrapper around Drillinginfo's Direct Access API
 
 ### Install
 ```commandline
-python setup.py install
+pip install directaccess
 ```
 
 ### Usage
