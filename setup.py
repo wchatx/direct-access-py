@@ -44,6 +44,9 @@ setup(
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
     install_requires=REQUIRES,
+    cmdclass={
+        'verify': VerifyVersionCommand,
+    },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
