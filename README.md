@@ -1,6 +1,8 @@
 # direct-access-py
 A thin wrapper around Drillinginfo's Direct Access API
 
+[![CircleCI](https://circleci.com/gh/wchatx/direct-access-py/tree/master.svg?style=svg)](https://circleci.com/gh/wchatx/direct-access-py/tree/master)
+
 
 ### Install
 ```commandline
