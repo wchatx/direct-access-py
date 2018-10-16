@@ -17,7 +17,7 @@ def read(fname):
 
 setup(
     name='directaccess',
-    version='0.4.1',
+    version='0.4.2',
     description='Drillinginfo Direct Access API Python Client',
     long_description=read('README.md'),
     author='Cole Howard',
