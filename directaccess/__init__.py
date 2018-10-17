@@ -7,7 +7,7 @@ from retrying import retry
 
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s %(levelname)-8s %(message)s',
     datefmt='%a, %d %b %Y %H:%M:%S'
 )
@@ -18,6 +18,10 @@ class DAAuthException(Exception):
 
 
 class DAQueryException(Exception):
+    pass
+
+
+class DADatasetException(Exception):
     pass
 
 
@@ -74,21 +78,18 @@ class DirectAccessV2(BaseAPI):
         self.client_secret = client_secret
         self.url = self.url + '/v2/direct-access'
 
-        # get access/refresh tokens
-        initial_token_request = self._manage_token()
-        self.access_token = initial_token_request['access_token']
-        logging.info('Access token expiration: {}'.format(initial_token_request['expires_in']))
+        self.access_token = self._get_access_token()['access_token']
+        logging.debug('Access token acquired: {}'.format(self.access_token))
 
     def _encode_secrets(self):
         return base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
 
     @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
-    def _manage_token(self):
+    def _get_access_token(self):
         """
-        Get initial access_token or refresh existing token. The access_token is added to the session object
+        Retrieve access token
 
-        :param refresh_token: the refresh token provided at the time an access token was granted
-        :return: the refresh token response
+        :return: access token as provided by API
         """
         url = self.url + '/tokens'
         self.session.headers['Authorization'] = 'Basic {}'.format(self._encode_secrets())
@@ -119,34 +120,38 @@ class DirectAccessV2(BaseAPI):
         :return: either a list of dictionary-based API responses or the responses themselves
         """
         url = '{base}/{dataset}'.format(base=self.url, dataset=dataset)
-        params = dict(options)
         while True:
-            if isinstance(params, dict):
-                response = self.session.get(
-                    url='{}?{}'.format(url, '&'.join(['{}={}'.format(k, v) for k, v in params.items()]))
-                )
+            if isinstance(options, dict):
+                # initial query params
+                response = self.session.get(url, params=options)
             else:
-                response = self.session.get(url=self.url + params)
+                # returned next link from previous request
+                response = self.session.get(url=self.url + options)
 
             if response.status_code != 200:
                 # Token/auth error
                 if response.status_code == 401:
                     logging.warning('Access token expired. Attempting refresh...')
-                    # Attempt to acquire new token
-                    self._manage_token()
+                    self._get_access_token()
+                    self.session.get(url, params=options)
+                # invalid endpoint
+                elif response.status_code == 404:
+                    msg = 'Invalid dataset provided: ' + dataset
+                    logging.error(msg)
+                    raise DADatasetException(msg)
 
-                    r = self.session.get(url, params=params)
                 # All other errors. Will retry
                 else:
-                    logging.warning('Non-200 response: {} {}'.format(response.status_code, response.content.decode()))
-                    raise DAQueryException('Non-200 response: {} {}'.format(response.status_code, response.content))
+                    msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
+                    logging.error(msg)
+                    raise DAQueryException(msg)
 
             if 'next' in response.links:
-                params = response.links['next']['url']
+                logging.debug(response.links['next']['url'])
+                options = response.links['next']['url']
 
             if len(response.json()) > 0:
                 for record in response.json():
                     yield record
             else:
                 break
-
