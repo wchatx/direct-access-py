@@ -6,7 +6,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.install import install
 
-VERSION = '0.4.5'
+VERSION = '0.4.6'
 
 REQUIRES = [
     'requests',
@@ -38,8 +38,12 @@ setup(
     version=VERSION,
     description='Drillinginfo Direct Access API Python Client',
     long_description=read('README.md'),
+    long_description_content_type='text/markdown',
     author='Cole Howard',
     author_email='wchatx@gmail.com',
+    url='https://github.com/wchatx/direct-access-py',
+    license='MIT',
+    keywords=['drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
     install_requires=REQUIRES,
@@ -49,11 +53,12 @@ setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
+        'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5'
         'Programming Language :: Python :: 3.6',
-    ],
+    ]
 )
