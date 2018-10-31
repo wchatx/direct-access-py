@@ -135,7 +135,7 @@ class DirectAccessV2(BaseAPI):
             if response.status_code != 200:
                 # Token/auth error
                 if response.status_code == 401:
-                    self.logger.warning('Access token expired. Attempting refresh...')
+                    self.logger.warning('Access token expired. Acquiring a new one...')
                     self._get_access_token()
                     self.session.get(url, params=options)
                 # invalid endpoint
