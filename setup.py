@@ -15,7 +15,7 @@ REQUIRES = [
 
 
 class VerifyVersionCommand(install):
-    description = 'verify that version matches the tag prior to circleci pushing to pypi'
+    description = 'verify that git tag matches VERSION prior to publishing to pypi'
 
     def run(self):
         tag = os.getenv('CIRCLE_TAG')
