@@ -1,5 +1,6 @@
 # direct-access-py
-[![CircleCI](https://circleci.com/gh/wchatx/direct-access-py/tree/master.svg?style=svg)](https://circleci.com/gh/wchatx/direct-access-py/tree/master)  
+[![CircleCI](https://circleci.com/gh/wchatx/direct-access-py/tree/master.svg?style=svg)](https://circleci.com/gh/wchatx/direct-access-py/tree/master)
+[![PyPI version](https://badge.fury.io/py/directaccess.svg)](https://badge.fury.io/py/directaccess) 
 
 A thin wrapper around Drillinginfo's Direct Access API.  
 
