@@ -9,14 +9,13 @@ from setuptools.command.install import install
 VERSION = '0.4.5'
 
 REQUIRES = [
-    'requests==2.18.4',
+    'requests',
     'retrying==1.3.3',
 ]
 
 
 class VerifyVersionCommand(install):
-    """Custom command to verify that the git tag matches our version"""
-    description = 'verify that the git tag matches our version'
+    description = 'verify that git tag matches VERSION prior to publishing to pypi'
 
     def run(self):
         tag = os.getenv('CIRCLE_TAG')
