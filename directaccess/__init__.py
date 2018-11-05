@@ -5,6 +5,12 @@ import logging
 import requests
 from retrying import retry
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    datefmt='%a, %d %b %Y %H:%M:%S'
+)
+
 
 class DAAuthException(Exception):
     pass
@@ -21,36 +27,22 @@ class DADatasetException(Exception):
 class BaseAPI(object):
     url = 'https://di-api.drillinginfo.com'
 
-    def __init__(self, api_key, session=None, logger=None):
+    def __init__(self, api_key):
         self.api_key = api_key
+        if not self.api_key:
+            raise DAAuthException('API KEY is required')
 
-        if session:
-            self.session = session
-            if 'X-API-KEY' not in self.session.headers:
-                self.session.headers['X-API-KEY'] = self.api_key
-        else:
-            self.session = requests.Session()
-            self.session.headers.update({
-                'X-API-KEY': self.api_key,
-                'User-Agent': 'direct-access-py'
-            })
+        self.session = requests.Session()
+        self.session.headers.update({
+            'X-API-KEY': self.api_key,
+            'User-Agent': 'direct-access-py'
+        })
 
-        if logger:
-            self.logger = logger.getChild('direct-access-py')
-        else:
-            self.logger = logging.getLogger('direct-access-py')
+        self.logger = logging.getLogger('direct-access-py')
 
     @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def query(self, dataset, **options):
-        """
-        Query generator
-
-        :param dataset: a supported Direct Access dataset name (see Direct Access documentation)
-        :param options: query parameters for the provided dataset as kwargs (see Direct Access documention for valid
-        values)
-        :return:
-        """
-        url = '{base}/{dataset}'.format(base=self.url, dataset=dataset)
+        url = self.url + '/' + dataset
 
         page = 1
         while True:
@@ -70,16 +62,19 @@ class BaseAPI(object):
 
 
 class DirectAccessV1(BaseAPI):
-    def __init__(self, api_key, session=None, logger=None):
-        super(DirectAccessV1, self).__init__(api_key, session, logger)
+    def __init__(self, api_key):
+        super(DirectAccessV1, self).__init__(api_key)
         self.url = self.url + '/v1/direct-access'
 
 
 class DirectAccessV2(BaseAPI):
-    def __init__(self, client_id, client_secret, api_key, session=None, logger=None):
-        super(DirectAccessV2, self).__init__(api_key, session, logger)
+    def __init__(self, client_id, client_secret, api_key):
+        super(DirectAccessV2, self).__init__(api_key)
         self.client_id = client_id
         self.client_secret = client_secret
+        if not self.client_id and not self.client_secret:
+            raise DAAuthException('CLIENT ID and CLIENT SECRET are required')
+
         self.url = self.url + '/v2/direct-access'
 
         self.access_token = self._get_access_token()['access_token']
@@ -90,11 +85,6 @@ class DirectAccessV2(BaseAPI):
 
     @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def _get_access_token(self):
-        """
-        Retrieve access token
-
-        :return: access token as provided by API
-        """
         url = self.url + '/tokens'
         self.session.headers['Authorization'] = 'Basic {}'.format(self._encode_secrets())
         self.session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -106,9 +96,9 @@ class DirectAccessV2(BaseAPI):
         r = self.session.post(url, params=payload)
 
         if r.status_code != 200:
-            raise DAAuthException(
-                'Error getting token. Code: {} Message: {}'.format(r.status_code, r.content)
-            )
+            msg = 'Error getting token. Code: {} Message: {}'.format(r.status_code, r.content)
+            self.logger.error(msg)
+            raise DAAuthException(msg)
 
         self.session.headers['Authorization'] = 'bearer {}'.format(r.json()['access_token'])
 
@@ -116,14 +106,8 @@ class DirectAccessV2(BaseAPI):
 
     @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def query(self, dataset, **options):
-        """
-        Direct Access v2 query method
+        url = self.url + '/' + dataset
 
-        :param dataset: the API dataset to query. See Direct Access documentation for valid values
-        :param options: the API parameters to request. See Direct Access documentation for valid values
-        :return: either a list of dictionary-based API responses or the responses themselves
-        """
-        url = '{base}/{dataset}'.format(base=self.url, dataset=dataset)
         while True:
             if isinstance(options, dict):
                 # initial query params
@@ -137,7 +121,7 @@ class DirectAccessV2(BaseAPI):
                 if response.status_code == 401:
                     self.logger.warning('Access token expired. Acquiring a new one...')
                     self._get_access_token()
-                    self.session.get(url, params=options)
+                    continue
                 # invalid endpoint
                 elif response.status_code == 404:
                     msg = 'Invalid dataset provided: ' + dataset
