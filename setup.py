@@ -6,12 +6,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.install import install
 
-VERSION = '0.4.8'
-
-REQUIRES = [
-    'requests',
-    'retrying==1.3.3',
-]
+VERSION = '1.0.0'
 
 
 class VerifyVersionCommand(install):
@@ -46,7 +41,7 @@ setup(
     keywords=['drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
-    install_requires=REQUIRES,
+    install_requires=['requests>=2.5.1, <3'],
     cmdclass={
         'verify': VerifyVersionCommand,
     },
