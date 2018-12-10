@@ -1,9 +1,9 @@
-import sys
 import base64
 import logging
 
 import requests
-from retrying import retry
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -37,10 +37,11 @@ class BaseAPI(object):
             'X-API-KEY': self.api_key,
             'User-Agent': 'direct-access-py'
         })
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        self.session.mount('https://', HTTPAdapter(max_retries=retries))
 
         self.logger = logging.getLogger('direct-access-py')
 
-    @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
@@ -52,8 +53,9 @@ class BaseAPI(object):
             try:
                 r = request.json()
             except ValueError:
-                self.logger.error('Query Error: {}'.format(request.content.decode()))
-                sys.exit(1)
+                msg = 'Query Error: {}'.format(request.content.decode())
+                self.logger.error(msg)
+                raise DAQueryException(msg)
             if not len(r) > 0:
                 break
             page = page + 1
@@ -83,7 +85,6 @@ class DirectAccessV2(BaseAPI):
     def _encode_secrets(self):
         return base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
 
-    @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def _get_access_token(self):
         url = self.url + '/tokens'
         self.session.headers['Authorization'] = 'Basic {}'.format(self._encode_secrets())
@@ -104,35 +105,28 @@ class DirectAccessV2(BaseAPI):
 
         return r.json()
 
-    @retry(wait_exponential_multiplier=5000, wait_exponential_max=100000, stop_max_attempt_number=20)
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
         while True:
             if isinstance(options, dict):
-                # initial query params
                 response = self.session.get(url, params=options)
             else:
-                # returned next link from previous request
                 response = self.session.get(url=self.url + options)
 
             if response.status_code != 200:
-                # Token/auth error
                 if response.status_code == 401:
                     self.logger.warning('Access token expired. Acquiring a new one...')
                     self._get_access_token()
                     continue
-                # invalid endpoint
                 elif response.status_code == 404:
                     msg = 'Invalid dataset provided: ' + dataset
                     self.logger.error(msg)
                     raise DADatasetException(msg)
 
-                # All other errors. Will retry
                 else:
                     msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
                     self.logger.error(msg)
-                    raise DAQueryException(msg)
 
             if 'next' in response.links:
                 options = response.links['next']['url']
