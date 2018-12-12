@@ -42,31 +42,30 @@ class BaseAPI(object):
 
         self.logger = logging.getLogger('direct-access-py')
 
-    def query(self, dataset, **options):
-        url = self.url + '/' + dataset
-
-        page = 1
-        while True:
-            params = dict(options)
-            params['page'] = page
-            request = self.session.get(url, params=params)
-            try:
-                r = request.json()
-            except ValueError:
-                msg = 'Query Error: {}'.format(request.content.decode())
-                self.logger.error(msg)
-                raise DAQueryException(msg)
-            if not len(r) > 0:
-                break
-            page = page + 1
-            for record in r:
-                yield record
-
 
 class DirectAccessV1(BaseAPI):
     def __init__(self, api_key):
         super(DirectAccessV1, self).__init__(api_key)
         self.url = self.url + '/v1/direct-access'
+
+    def query(self, dataset, **options):
+        url = self.url + '/' + dataset
+
+        if not hasattr(options, 'page'):
+            options['page'] = 1
+        while True:
+            request = self.session.get(url, params=options)
+            try:
+                response = request.json()
+            except ValueError:
+                msg = 'Query Error: {}'.format(request.content.decode())
+                self.logger.error(msg)
+                raise DAQueryException(msg)
+            if not len(response) > 0:
+                break
+            options['page'] = options['page'] + 1
+            for record in response:
+                yield record
 
 
 class DirectAccessV2(BaseAPI):
@@ -90,29 +89,27 @@ class DirectAccessV2(BaseAPI):
         self.session.headers['Authorization'] = 'Basic {}'.format(self._encode_secrets())
         self.session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
-        payload = {
-            'grant_type': 'client_credentials'
-        }
+        payload = {'grant_type': 'client_credentials'}
+        response = self.session.post(url, params=payload)
 
-        r = self.session.post(url, params=payload)
-
-        if r.status_code != 200:
-            msg = 'Error getting token. Code: {} Message: {}'.format(r.status_code, r.content)
+        if response.status_code != 200:
+            msg = 'Error getting token. Code: {} Message: {}'.format(response.status_code, response.content)
             self.logger.error(msg)
             raise DAAuthException(msg)
 
-        self.session.headers['Authorization'] = 'bearer {}'.format(r.json()['access_token'])
+        self.session.headers['Authorization'] = 'bearer {}'.format(response.json()['access_token'])
 
-        return r.json()
+        return response.json()
 
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
+        next_link = None
         while True:
-            if isinstance(options, dict):
-                response = self.session.get(url, params=options)
+            if next_link:
+                response = self.session.get(url=self.url + next_link)
             else:
-                response = self.session.get(url=self.url + options)
+                response = self.session.get(url, params=options)
 
             if response.status_code != 200:
                 if response.status_code == 401:
@@ -129,10 +126,10 @@ class DirectAccessV2(BaseAPI):
                     self.logger.error(msg)
 
             if 'next' in response.links:
-                options = response.links['next']['url']
+                next_link = response.links['next']['url']
 
-            if len(response.json()) > 0:
-                for record in response.json():
-                    yield record
-            else:
+            if not len(response.json()) > 0:
                 break
+
+            for record in response.json():
+                yield record
