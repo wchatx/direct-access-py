@@ -27,8 +27,10 @@ class DADatasetException(Exception):
 class BaseAPI(object):
     url = 'https://di-api.drillinginfo.com'
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, retries, backoff_factor):
         self.api_key = api_key
+        self.retries = retries
+        self.backoff_factor = backoff_factor
         if not self.api_key:
             raise DAAuthException('API KEY is required')
 
@@ -37,15 +39,19 @@ class BaseAPI(object):
             'X-API-KEY': self.api_key,
             'User-Agent': 'direct-access-py'
         })
-        retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        retries = Retry(
+            total=self.retries,
+            backoff_factor=self.backoff_factor,
+            status_forcelist=[500, 502, 503, 504]
+        )
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
 
         self.logger = logging.getLogger('direct-access-py')
 
 
 class DirectAccessV1(BaseAPI):
-    def __init__(self, api_key):
-        super(DirectAccessV1, self).__init__(api_key)
+    def __init__(self, api_key, retries=5, backoff_factor=1):
+        super(DirectAccessV1, self).__init__(api_key, retries, backoff_factor)
         self.url = self.url + '/v1/direct-access'
 
     def query(self, dataset, **options):
@@ -69,14 +75,15 @@ class DirectAccessV1(BaseAPI):
 
 
 class DirectAccessV2(BaseAPI):
-    def __init__(self, client_id, client_secret, api_key):
-        super(DirectAccessV2, self).__init__(api_key)
+    def __init__(self, client_id, client_secret, api_key, retries=5, backoff_factor=1):
+        super(DirectAccessV2, self).__init__(api_key, retries, backoff_factor)
         self.client_id = client_id
         self.client_secret = client_secret
         if not self.client_id and not self.client_secret:
             raise DAAuthException('CLIENT ID and CLIENT SECRET are required')
 
         self.url = self.url + '/v2/direct-access'
+        self.links = None
 
         self.access_token = self._get_access_token()['access_token']
         self.logger.debug('Access token acquired: {}'.format(self.access_token))
@@ -104,10 +111,9 @@ class DirectAccessV2(BaseAPI):
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
-        next_link = None
         while True:
-            if next_link:
-                response = self.session.get(url=self.url + next_link)
+            if self.links:
+                response = self.session.get(url=self.url + self.links['next']['url'])
             else:
                 response = self.session.get(url, params=options)
 
@@ -125,11 +131,13 @@ class DirectAccessV2(BaseAPI):
                     msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
                     self.logger.error(msg)
 
-            if 'next' in response.links:
-                next_link = response.links['next']['url']
+            records = response.json()
 
-            if not len(response.json()) > 0:
+            if not len(records) > 0:
                 break
 
-            for record in response.json():
+            if 'next' in response.links:
+                self.links = response.links
+
+            for record in records:
                 yield record
