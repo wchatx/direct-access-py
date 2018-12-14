@@ -77,6 +77,7 @@ class DirectAccessV2(BaseAPI):
             raise DAAuthException('CLIENT ID and CLIENT SECRET are required')
 
         self.url = self.url + '/v2/direct-access'
+        self.links = None
 
         self.access_token = self._get_access_token()['access_token']
         self.logger.debug('Access token acquired: {}'.format(self.access_token))
@@ -104,10 +105,9 @@ class DirectAccessV2(BaseAPI):
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
-        next_link = None
         while True:
-            if next_link:
-                response = self.session.get(url=self.url + next_link)
+            if self.links:
+                response = self.session.get(url=self.url + self.links['next']['url'])
             else:
                 response = self.session.get(url, params=options)
 
@@ -125,11 +125,13 @@ class DirectAccessV2(BaseAPI):
                     msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
                     self.logger.error(msg)
 
-            if 'next' in response.links:
-                next_link = response.links['next']['url']
+            records = response.json()
 
-            if not len(response.json()) > 0:
+            if not len(records) > 0:
                 break
 
-            for record in response.json():
+            if 'next' in response.links:
+                self.links = response.links
+
+            for record in records:
                 yield record
