@@ -102,7 +102,7 @@ d1 = DirectAccessV1(
 )
 ```
 
-In the event of an unrecoverable error, you can write your process in a way the persists the pagination links
+In the event of an unrecoverable error, you can write your process in a way that persists the pagination links
 so that you can pick back up where you left off. A basic implementation might look like this:
 ```python
 import os
