@@ -28,14 +28,6 @@ def read(fname):
     return content
 
 
-extras = [
-    'numpy>=1.7.0',
-    'pandas-0.17.0',
-    'python-dateutil-2.7.5',
-    'pytz-2018.7'
-]
-
-
 setup(
     name='directaccess',
     version=VERSION,
@@ -50,7 +42,6 @@ setup(
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
     install_requires=['requests>=2.5.1, <3'],
-    extra_requires=extras,
     cmdclass={
         'verify': VerifyVersionCommand,
     },
