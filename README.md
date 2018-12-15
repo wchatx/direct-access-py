@@ -19,14 +19,14 @@ For version 1 of the API, create an instance of the DirectAccessV1 class and pro
 ```python
 from directaccess import DirectAccessV1
 
-d1 = DirectAccessV1(api_key=<your-api-key>)
+d1 = DirectAccessV1(api_key='<your-api-key>')
 ```
 
 Provide the query method the dataset as the first argument and any query parameters as keyword arguments.
 See valid dataset names and query params in the Direct Access documentation.
 The query method returns a generator of API responses as dicts.
 ```python
-for row in d1.query('landtrac-leases', county_parish='Reeves', state_province='TX', min_expiration_date='2018-06-01'):
+for row in d1.query('leases', county_parish='Reeves', state_province='TX', min_expiration_date='2018-06-01'):
     print(row)
 ```
 
@@ -38,9 +38,9 @@ header is set automatically
 from directaccess import DirectAccessV2
 
 d2 = DirectAccessV2(
-    client_id=<your-client-id>,
-    client_secret=<your-client-secret>,
-    api_key=<your-api-key>
+    api_key='<your-api-key>',
+    client_id='<your-client-id>',
+    client_secret='<your-client-secret>',
 )
 ```
 
@@ -82,3 +82,57 @@ for row in d2.query('producing-entities', curropername='PERCUSSION PETROLEUM OPE
     print(row)
 
 ```
+
+### Errors
+Direct Access is a data api with hundreds of millions of records depending on your subscription. Networks are inherently unreliable
+and errors are going to happen at some point. This module provides two means of dealing with errors;
+configurable retries with exponential backoff (available for v1 and v2), and exposing the pagination
+link as an attribute (v2 only).  
+
+Retrying while making requests
+```python
+from directaccess import DirectAccessV1
+
+# Retry 5 times, backing off exponentially 
+# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
+d1 = DirectAccessV1(
+    api_key='<your-api-key>',
+    retries=5,
+    backoff_factor=1
+)
+```
+
+In the event of an unrecoverable error, you can write your process in a way the persists the pagination links
+so that you can pick back up where you left off. A basic implementation might look like this:
+```python
+import os
+import json
+from directaccess import DirectAccessV2
+
+RECOVERY_FILE = 'your-api-links.json'
+
+d2 = DirectAccessV2(
+    api_key='<your-api-key>',
+    client_id='<your-client-id>',
+    client_secret='<your-client-secret>',
+    retries=5,
+    backoff_factor=1    
+)
+
+# if there's an existing recovery file, provide it to the instance
+if os.path.exists(RECOVERY_FILE):
+    with open(RECOVERY_FILE) as f:
+        d2.links = json.loads(f.read())
+
+# interact with the api, writing out a recovery file in the event of an unrecoverable error. 
+# this will overwrite any previously existing file.
+try:
+    for row in d2.query('permits'):
+        print(row)
+except Exception:
+    with open(RECOVERY_FILE, mode='w') as f:
+        f.write(json.dumps(d2.links))
+
+```
+You could persist the pagination links any way you want. If provided, the DirectAccessV2 class expects a dictionary
+and the json example above is just one way to do this.
