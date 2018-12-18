@@ -26,7 +26,7 @@ Provide the query method the dataset as the first argument and any query paramet
 See valid dataset names and query params in the Direct Access documentation.
 The query method returns a generator of API responses as dicts.
 ```python
-for row in d1.query('leases', county_parish='Reeves', state_province='TX', min_expiration_date='2018-06-01'):
+for row in d1.query('legal-leases', county_parish='Reeves', state_province='TX', min_expiration_date='2018-06-01'):
     print(row)
 ```
 
