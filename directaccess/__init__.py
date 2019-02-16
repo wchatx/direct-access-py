@@ -133,7 +133,8 @@ class DirectAccessV2(BaseAPI):
 
             records = response.json()
 
-            if not len(records) > 0:
+            if not len(records):
+                self.links = None
                 break
 
             if 'next' in response.links:
