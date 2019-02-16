@@ -135,5 +135,5 @@ except Exception:
 
 ```
 You could persist the pagination links any way you want. If provided, the DirectAccessV2 class expects a dictionary like 
-the one provided from the [Request's module links](http://docs.python-requests.org/en/master/user/advanced/#link-headers) 
+the one provided from the [Requests module's links](http://docs.python-requests.org/en/master/user/advanced/#link-headers) 
 and the json example above is just one way to do this.
