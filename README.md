@@ -75,7 +75,7 @@ for row in d2.query('rigs', fields='DrillType,LeaseName,PermitDepth'):
 ```
 
 ### Escaping
-When making requests containing certain characters, use a backslash to escape them.  
+When making requests containing certain characters like commas, use a backslash to escape them.  
 ```python
 # Escaping the comma before LLC
 for row in d2.query('producing-entities', curropername='PERCUSSION PETROLEUM OPERATING\, LLC'):
@@ -134,5 +134,6 @@ except Exception:
         f.write(json.dumps(d2.links))
 
 ```
-You could persist the pagination links any way you want. If provided, the DirectAccessV2 class expects a dictionary
+You could persist the pagination links any way you want. If provided, the DirectAccessV2 class expects a dictionary like 
+the one provided from the [Request's module links](http://docs.python-requests.org/en/master/user/advanced/#link-headers) 
 and the json example above is just one way to do this.
