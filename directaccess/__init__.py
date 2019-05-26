@@ -75,18 +75,20 @@ class DirectAccessV1(BaseAPI):
 
 
 class DirectAccessV2(BaseAPI):
-    def __init__(self, client_id, client_secret, api_key, retries=5, backoff_factor=1, links=None):
+    def __init__(self, client_id, client_secret, api_key, retries=5, backoff_factor=1, links=None, access_token=None):
         super(DirectAccessV2, self).__init__(api_key, retries, backoff_factor)
         self.client_id = client_id
         self.client_secret = client_secret
         self.links = links
+        self.access_token = access_token
         if not self.client_id and not self.client_secret:
             raise DAAuthException('CLIENT ID and CLIENT SECRET are required')
 
         self.url = self.url + '/v2/direct-access'
 
-        self.access_token = self._get_access_token()['access_token']
-        self.logger.debug('Access token acquired: {}'.format(self.access_token))
+        if not self.access_token:
+            self.access_token = self._get_access_token()['access_token']
+            self.logger.debug('Access token acquired: {}'.format(self.access_token))
 
     def _encode_secrets(self):
         return base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
