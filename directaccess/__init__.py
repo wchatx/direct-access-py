@@ -26,12 +26,15 @@ class BaseAPI(object):
         self.retries = retries
         self.backoff_factor = backoff_factor
 
-        self.logger = logging.getLogger('direct-access-py')
-        self.logger.setLevel(kwargs.pop('log_level', logging.INFO))
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s %(module)s %(levelname)-8s %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        if 'logger' in kwargs and isinstance(kwargs['logger'], logging.Logger):
+            self.logger = kwargs['logger']
+        else:
+            self.logger = logging.getLogger('direct-access-py')
+            self.logger.setLevel(kwargs.pop('log_level', logging.INFO))
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s %(module)s %(levelname)-8s %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
 
         if not self.api_key:
             raise DAAuthException('API KEY is required')
@@ -57,7 +60,7 @@ class DirectAccessV1(BaseAPI):
     def query(self, dataset, **options):
         url = self.url + '/' + dataset
 
-        if not hasattr(options, 'page'):
+        if 'page' not in options:
             options['page'] = 1
         while True:
             request = self.session.get(url, params=options)
@@ -67,7 +70,7 @@ class DirectAccessV1(BaseAPI):
                 msg = 'Query Error: {}'.format(request.content.decode())
                 self.logger.error(msg)
                 raise DAQueryException(msg)
-            if not len(response) > 0:
+            if not len(response):
                 break
             options['page'] = options['page'] + 1
             for record in response:
@@ -104,7 +107,7 @@ class DirectAccessV2(BaseAPI):
         payload = {'grant_type': 'client_credentials'}
         response = self.session.post(url, params=payload)
 
-        if response.status_code != 200:
+        if not response.ok:
             msg = 'Error getting token. Code: {} Message: {}'.format(response.status_code, response.content)
             self.logger.error(msg)
             raise DAAuthException(msg)
@@ -122,7 +125,7 @@ class DirectAccessV2(BaseAPI):
             else:
                 response = self.session.get(url, params=options)
 
-            if response.status_code != 200:
+            if not response.ok:
                 if response.status_code == 401:
                     self.logger.warning('Access token expired. Acquiring a new one...')
                     self._get_access_token()
@@ -134,6 +137,7 @@ class DirectAccessV2(BaseAPI):
                 else:
                     msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
                     self.logger.error(msg)
+                    raise DAQueryException(msg)
 
             records = response.json()
 
