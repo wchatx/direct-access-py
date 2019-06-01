@@ -5,6 +5,7 @@ __pycache__/
 
 .idea/
 requirements-dev.txt
+*.csv
 
 # C extensions
 *.so
