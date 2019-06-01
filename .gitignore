@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
 .idea/
+requirements-dev.txt
 
 # C extensions
 *.so
