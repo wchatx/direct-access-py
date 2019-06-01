@@ -1,3 +1,10 @@
+"""
+test_multiprocessing.py
+
+Test that the originally acquired access_token is still valid and that no new
+authentication request was sent from within the child processes.
+"""
+
 import os
 from multiprocessing import Process
 
@@ -18,8 +25,8 @@ api_token = DirectAccessV2(
 
 def query(endpoint, **options):
     """
-    Test that the originally acquired access_token is still valid and that no new
-    authentication request was sent from within the child process.
+    Query method target for multiprocessing child processes. Validates that after the first request,
+    the originally acquired access_token equals the token available on the child client.
 
     :param endpoint: a valid Direct Access API dataset endpoint
     :param options: kwargs of valid query parameters for the dataset endpoint
@@ -41,12 +48,15 @@ def query(endpoint, **options):
 
 
 def test_multiple_processes():
+    """
+    Launch two child processes, one for rigs and one for permits.
+    :return:
+    """
     procs = list()
     a = Process(
         target=query,
         kwargs=dict(
-            endpoint='rigs',
-            pagesize=1
+            endpoint='rigs'
         )
     )
     procs.append(a)
@@ -54,8 +64,7 @@ def test_multiple_processes():
     b = Process(
         target=query,
         kwargs=dict(
-            endpoint='permits',
-            pagesize=1
+            endpoint='permits'
         )
     )
     procs.append(b)
