@@ -40,6 +40,8 @@ class BaseAPI(object):
             raise DAAuthException('API KEY is required')
 
         self.session = requests.Session()
+        self.session.verify = kwargs.pop('verify', True)
+        self.session.proxies = kwargs.pop('proxies', {})
         self.session.headers.update({
             'X-API-KEY': self.api_key,
             'User-Agent': 'direct-access-py'

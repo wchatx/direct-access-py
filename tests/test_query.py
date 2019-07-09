@@ -24,14 +24,18 @@ def test_query():
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
         backoff_factor=1,
+        verify=False
     )
 
-    resp = d2.query('rigs')
+    query = d2.query('rigs', pagesize=10000)
     records = list()
-    for i, row in enumerate(resp, start=1):
+    for i, row in enumerate(query, start=1):
         records.append(row)
 
-        if i % 50 == 0:
-            assert len(records) == 50
+    assert records
 
     return
+
+
+if __name__ == '__main__':
+    test_query()
