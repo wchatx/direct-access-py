@@ -23,8 +23,7 @@ def test_query():
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
-        backoff_factor=1,
-        verify=False
+        backoff_factor=1
     )
 
     query = d2.query('rigs', pagesize=10000)
