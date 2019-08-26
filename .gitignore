@@ -6,6 +6,7 @@ __pycache__/
 .idea/
 requirements-dev.txt
 *.csv
+*.sql
 
 # C extensions
 *.so
