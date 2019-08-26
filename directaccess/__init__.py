@@ -60,6 +60,18 @@ class DirectAccessV1(BaseAPI):
         self.url = self.url + '/v1/direct-access'
 
     def query(self, dataset, **options):
+        """
+        Query Direct Access V1 dataset
+
+        Accepts a dataset name and a variable number of keyword arguments that correspond to the fields specified in
+        the 'Request Parameters' section for each dataset in the Direct Access documentation.
+
+        This method only supports the JSON output provided by the API and yields dicts for each record.
+
+        :param dataset:
+        :param options:
+        :return:
+        """
         url = self.url + '/' + dataset
 
         if 'page' not in options:
@@ -118,12 +130,39 @@ class DirectAccessV2(BaseAPI):
 
         return response.json()
 
+    def ddl(self, dataset, database):
+        """
+        Get DDL statement for dataset
+
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :param database: one of mssql or pg. mssql is Microsoft SQL Server, pg is PostgreSQL
+        :return: a DDL statement from the Direct Access service
+        """
+        url = self.url + '/' + dataset
+        if database != 'pg' and database != 'mssql':
+            raise DAQueryException('Valid values for ddl database parameter are "pg" or "mssql"')
+        self.logger.info('Retrieving DDL for dataset: ' + dataset)
+        response = self.session.get(url, params=dict(ddl=database))
+        return response.content
+
     def query(self, dataset, **options):
+        """
+        Query Direct Access V2 dataset
+
+        Accepts a dataset name and a variable number of keyword arguments that correspond to the fields specified in
+        the 'Request Parameters' section for each dataset in the Direct Access documentation.
+
+        This method only supports the JSON output provided by the API and yields dicts for each record.
+
+        :param dataset:
+        :param options:
+        :return:
+        """
         url = self.url + '/' + dataset
 
         while True:
             if self.links:
-                response = self.session.get(url=self.url + self.links['next']['url'])
+                response = self.session.get(self.url + self.links['next']['url'])
             else:
                 response = self.session.get(url, params=options)
 
