@@ -5,7 +5,7 @@ Validate that the query method returns the expected number of records for Python
 """
 
 import os
-import logging
+from datetime import datetime, timedelta
 
 from directaccess import DirectAccessV2
 
@@ -14,7 +14,7 @@ DIRECTACCESS_CLIENT_ID = os.getenv('DIRECTACCESS_CLIENT_ID')
 DIRECTACCESS_CLIENT_SECRET = os.getenv('DIRECTACCESS_CLIENT_SECRET')
 
 
-def test_query():
+def test_count():
     """
     Authenticate and query Direct Access API Rigs endpoint and validate that records are returned
     :return:
@@ -24,19 +24,17 @@ def test_query():
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
-        backoff_factor=5,
-        log_level=logging.DEBUG
+        backoff_factor=5
     )
 
-    query = d2.query('rigs', pagesize=10000, deleteddate='null')
-    records = list()
-    for i, row in enumerate(query, start=1):
-        records.append(row)
-
-    assert records
+    count = d2.count('rigs', deleteddate='null', updateddate='ge({})'.format(
+        datetime.strftime(datetime.now() - timedelta(days=30), '%Y-%m-%d')
+    ))
+    assert count is not None
+    assert isinstance(count, int)
 
     return
 
 
 if __name__ == '__main__':
-    test_query()
+    test_count()

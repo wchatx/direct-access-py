@@ -38,7 +38,7 @@ setup(
     author_email='wchatx@gmail.com',
     url='https://github.com/wchatx/direct-access-py',
     license='MIT',
-    keywords=['drillinginfo', 'oil', 'gas'],
+    keywords=['enverus', 'drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
     install_requires=['requests>=2.5.1, <3'],
@@ -51,9 +51,7 @@ setup(
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3'
     ]
 )

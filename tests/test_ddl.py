@@ -4,6 +4,8 @@ test_ddl.py
 Validate that the query method returns the expected DDL statement for Python 2.7 and Python 3.4+
 """
 import os
+import logging
+from tempfile import TemporaryFile
 
 from directaccess import DirectAccessV2
 
@@ -20,11 +22,14 @@ def test_ddl():
     d2 = DirectAccessV2(
         api_key=DIRECTACCESS_API_KEY,
         client_id=DIRECTACCESS_CLIENT_ID,
-        client_secret=DIRECTACCESS_CLIENT_SECRET
+        client_secret=DIRECTACCESS_CLIENT_SECRET,
+        retries=5,
+        backoff_factor=5,
+        log_level=logging.DEBUG
     )
 
     ddl = d2.ddl('rigs', database='pg')
-    with open('create_rigs_table.sql', mode='wb+') as f:
+    with TemporaryFile() as f:
         f.write(ddl)
         f.seek(0)
         for line in f:
