@@ -7,6 +7,7 @@ network-related error handling/retries.
 
 This module is built and tested on Python 3.6 but should work on Python 2.7 and up.
 
+
 ## Install
 ```commandline
 pip install directaccess
