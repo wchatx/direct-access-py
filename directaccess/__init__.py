@@ -1,3 +1,4 @@
+import time
 import base64
 import logging
 
@@ -49,7 +50,8 @@ class BaseAPI(object):
         retries = Retry(
             total=self.retries,
             backoff_factor=self.backoff_factor,
-            status_forcelist=[500, 502, 503, 504]
+            method_whitelist=frozenset(['GET', 'POST', 'HEAD']),
+            status_forcelist=[403, 500, 502, 503, 504]
         )
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
 
@@ -68,8 +70,8 @@ class DirectAccessV1(BaseAPI):
 
         This method only supports the JSON output provided by the API and yields dicts for each record.
 
-        :param dataset:
-        :param options:
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :param options: query parameters as keyword arguments
         :return:
         """
         url = self.url + '/' + dataset
@@ -145,6 +147,19 @@ class DirectAccessV2(BaseAPI):
         response = self.session.get(url, params=dict(ddl=database))
         return response.content
 
+    def count(self, dataset, **options):
+        """
+        Get the count of records given a dataset and query options
+
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :param options: query parameters as keyword arguments
+        :return:
+        """
+        url = self.url + '/' + dataset
+        response = self.session.head(url, params=options)
+        count = response.headers.get('X-Query-Record-Count')
+        return int(count)
+
     def query(self, dataset, **options):
         """
         Query Direct Access V2 dataset
@@ -154,8 +169,8 @@ class DirectAccessV2(BaseAPI):
 
         This method only supports the JSON output provided by the API and yields dicts for each record.
 
-        :param dataset:
-        :param options:
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :param options: query parameters as keyword arguments
         :return:
         """
         url = self.url + '/' + dataset
