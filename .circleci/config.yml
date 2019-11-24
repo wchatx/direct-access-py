@@ -20,7 +20,7 @@ jobs:
       - run:
           name: run tests
           command: |
-            py.test tests
+            py.test-3 tests
 
       - save_cache:
           key: v1-dependency-cache-{{ checksum "setup.py" }}
@@ -47,7 +47,7 @@ jobs:
       - run:
           name: run tests
           command: |
-            py.test tests
+            py.test-3 tests
 
       - save_cache:
           key: v1-dependency-cache-{{ checksum "setup.py" }}
