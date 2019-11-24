@@ -24,7 +24,7 @@ def test_count():
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
-        backoff_factor=5
+        backoff_factor=10
     )
 
     count = d2.count('rigs', deleteddate='null', updateddate='ge({})'.format(
