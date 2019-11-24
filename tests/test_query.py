@@ -24,7 +24,7 @@ def test_query():
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
-        backoff_factor=5,
+        backoff_factor=10,
         log_level=logging.DEBUG
     )
 
