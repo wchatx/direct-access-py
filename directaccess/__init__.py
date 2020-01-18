@@ -1,6 +1,8 @@
-import time
+import os
+import csv
 import base64
 import logging
+from warnings import warn
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -55,11 +57,45 @@ class BaseAPI(object):
         )
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
 
+    def query(self, dataset, **options):
+        raise NotImplementedError
+
+    def to_csv(self, query, path, log_progress=True, **kwargs):
+        """
+        Write query results to CSV.
+
+        :param query: DirectAccessV1 or DirectAccessV2 query object
+        :param path: filesystem path for created CSV
+        :type path: str
+        :param log_progress: whether to log progress
+        :type log_progress: bool
+        """
+        with open(path, mode='w', newline='') as f:
+            writer = csv.writer(f, **kwargs)
+            count = None
+            for i, row in enumerate(query, start=1):
+                count = i
+                if i == 1:
+                    writer.writerow(row.keys())
+                writer.writerow(row.values())
+
+                if log_progress and i % 100000 == 0:
+                    self.logger.info('Wrote {count} records to file {path}'.format(
+                        count=count, path=path
+                    ))
+            self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
+                path=path, count=count
+            ))
+        return
+
 
 class DirectAccessV1(BaseAPI):
     def __init__(self, api_key, retries=5, backoff_factor=1, **kwargs):
         super(DirectAccessV1, self).__init__(api_key, retries, backoff_factor, **kwargs)
         self.url = self.url + '/v1/direct-access'
+        warn('DEPRECATION: Direct Access Version 1 will reach the end of its life in July, 2020. '
+             'Please upgrade your application as Version 1 will be inaccessible after that date. '
+             'A future version of this module will drop support for Version 1.')
 
     def query(self, dataset, **options):
         """
@@ -109,36 +145,61 @@ class DirectAccessV2(BaseAPI):
         if self.access_token:
             self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
         else:
-            self.access_token = self._get_access_token()['access_token']
+            self.access_token = self.get_access_token()['access_token']
             self.logger.debug('Access token acquired: {}'.format(self.access_token))
 
-    def _encode_secrets(self):
-        return base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
+        self.session.hooks['response'].append(self._refresh_token_hook)
 
-    def _get_access_token(self):
+    def _refresh_token_hook(self, response, *args, **kwargs):
+        """
+        Check responses for 401, refresh access token if found and resend request
+
+        :param response: a requests Response object
+        :param args:
+        :param kwargs:
+        :return: the resent request back to calling function
+        """
+        if not response.ok:
+            if response.status_code == 401:
+                self.logger.warning('Access token expired. Acquiring a new one...')
+                self.get_access_token()
+                request = response.request
+                request.headers['Authorization'] = self.session.headers['Authorization']
+                return self.session.send(request)
+
+    def get_access_token(self):
+        """
+        Get an access token from /tokens endpoint. Automatically sets the Authorization header on the class instance's
+        session. Raises DAAuthException on error
+
+        :return: token response as dict
+        """
         url = self.url + '/tokens'
-        self.session.headers['Authorization'] = 'Basic {}'.format(self._encode_secrets())
+        self.session.headers['Authorization'] = 'Basic {}'.format(
+            base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
+        )
         self.session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
         payload = {'grant_type': 'client_credentials'}
         response = self.session.post(url, params=payload)
 
         if not response.ok:
-            msg = 'Error getting token. Code: {} Message: {}'.format(response.status_code, response.content)
-            self.logger.error(msg)
-            raise DAAuthException(msg)
+            raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
+                response.status_code, response.content)
+            )
 
-        self.session.headers['Authorization'] = 'bearer {}'.format(response.json()['access_token'])
-
+        self.access_token = response.json()['access_token']
+        self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
         return response.json()
 
     def ddl(self, dataset, database):
         """
-        Get DDL statement for dataset
+        Get DDL statement for dataset. Must provide exactly one of mssql or pg for database argument.
+        mssql is Microsoft SQL Server, pg is PostgreSQL
 
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
-        :param database: one of mssql or pg. mssql is Microsoft SQL Server, pg is PostgreSQL
-        :return: a DDL statement from the Direct Access service
+        :param database: one of mssql or pg.
+        :return: a DDL statement from the Direct Access service as str
         """
         url = self.url + '/' + dataset
         if database != 'pg' and database != 'mssql':
@@ -152,7 +213,7 @@ class DirectAccessV2(BaseAPI):
         Get docs for dataset
 
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
-        :return: docs response for dataset
+        :return: docs response for dataset as list[dict]
         """
         url = self.url + '/' + dataset
         self.logger.debug('Retrieving docs for dataset: ' + dataset)
@@ -170,7 +231,7 @@ class DirectAccessV2(BaseAPI):
 
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :param options: query parameters as keyword arguments
-        :return:
+        :return: record count as int
         """
         url = self.url + '/' + dataset
         response = self.session.head(url, params=options)
@@ -188,7 +249,7 @@ class DirectAccessV2(BaseAPI):
 
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :param options: query parameters as keyword arguments
-        :return:
+        :return: query response as generator
         """
         url = self.url + '/' + dataset
 
@@ -199,18 +260,12 @@ class DirectAccessV2(BaseAPI):
                 response = self.session.get(url, params=options)
 
             if not response.ok:
-                if response.status_code == 401:
-                    self.logger.warning('Access token expired. Acquiring a new one...')
-                    self._get_access_token()
-                    continue
-                elif response.status_code == 404:
-                    msg = 'Invalid dataset provided: ' + dataset
-                    self.logger.error(msg)
-                    raise DADatasetException(msg)
+                if response.status_code == 404:
+                    raise DADatasetException('Invalid dataset provided: ' + dataset)
                 else:
-                    msg = 'Non-200 response: {} {}'.format(response.status_code, response.content.decode())
-                    self.logger.error(msg)
-                    raise DAQueryException(msg)
+                    raise DAQueryException('Non-200 response: {} {}'.format(
+                        response.status_code, response.content.decode())
+                    )
 
             records = response.json()
 
