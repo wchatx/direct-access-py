@@ -33,7 +33,7 @@ def query(endpoint, access_token, **options):
         retries=5,
         backoff_factor=5,
         access_token=access_token,
-        log_level=logging.DEBUG
+        log_level=logging.INFO
     )
 
     resp = client.query(endpoint, **options)

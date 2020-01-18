@@ -34,7 +34,3 @@ def test_count():
     assert isinstance(count, int)
 
     return
-
-
-if __name__ == '__main__':
-    test_count()

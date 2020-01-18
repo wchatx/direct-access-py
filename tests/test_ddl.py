@@ -37,7 +37,3 @@ def test_ddl():
             break
 
     return
-
-
-if __name__ == '__main__':
-    test_ddl()

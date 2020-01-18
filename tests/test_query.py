@@ -14,7 +14,7 @@ DIRECTACCESS_CLIENT_ID = os.getenv('DIRECTACCESS_CLIENT_ID')
 DIRECTACCESS_CLIENT_SECRET = os.getenv('DIRECTACCESS_CLIENT_SECRET')
 
 
-def test_query(dataset):
+def test_query(dataset='rigs'):
     """
     Authenticate and query Direct Access API Rigs endpoint and validate that records are returned
     :return:
@@ -41,7 +41,3 @@ def test_query(dataset):
     assert records
 
     return
-
-
-if __name__ == '__main__':
-    test_query(dataset='rigs')
