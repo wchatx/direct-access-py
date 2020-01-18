@@ -143,9 +143,26 @@ class DirectAccessV2(BaseAPI):
         url = self.url + '/' + dataset
         if database != 'pg' and database != 'mssql':
             raise DAQueryException('Valid values for ddl database parameter are "pg" or "mssql"')
-        self.logger.info('Retrieving DDL for dataset: ' + dataset)
+        self.logger.debug('Retrieving DDL for dataset: ' + dataset)
         response = self.session.get(url, params=dict(ddl=database))
-        return response.content
+        return response.text
+
+    def docs(self, dataset):
+        """
+        Get docs for dataset
+
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :return: docs response for dataset
+        """
+        url = self.url + '/' + dataset
+        self.logger.debug('Retrieving docs for dataset: ' + dataset)
+        response = self.session.get(url, params=dict(docs=True))
+        if response.status_code == 501:
+            self.logger.warning('docs and example params are not yet supported on dataset {dataset}'.format(
+                dataset=dataset
+            ))
+            return
+        return response.json()
 
     def count(self, dataset, **options):
         """
