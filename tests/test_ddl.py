@@ -25,15 +25,15 @@ def test_ddl():
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
         backoff_factor=10,
-        log_level=logging.DEBUG
+        log_level=logging.INFO
     )
 
     ddl = d2.ddl('rigs', database='pg')
-    with TemporaryFile() as f:
+    with TemporaryFile(mode='w+') as f:
         f.write(ddl)
         f.seek(0)
         for line in f:
-            assert line.split(b' ')[0] == b'CREATE'
+            assert line.split(' ')[0] == 'CREATE'
             break
 
     return
