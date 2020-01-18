@@ -1,7 +1,7 @@
 """
-test_query.py
+test_csv.py
 
-Test the DirectAccessV2 methods
+Test writing query results to CSV
 """
 
 import os
