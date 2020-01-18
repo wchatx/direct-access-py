@@ -14,7 +14,7 @@ DIRECTACCESS_CLIENT_ID = os.getenv('DIRECTACCESS_CLIENT_ID')
 DIRECTACCESS_CLIENT_SECRET = os.getenv('DIRECTACCESS_CLIENT_SECRET')
 
 
-def test_query():
+def test_query(dataset='rigs'):
     """
     Authenticate and query Direct Access API Rigs endpoint and validate that records are returned
     :return:
@@ -24,19 +24,20 @@ def test_query():
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
-        backoff_factor=10,
-        log_level=logging.DEBUG
+        backoff_factor=10
     )
 
-    query = d2.query('rigs', pagesize=10000, deleteddate='null')
+    docs = d2.docs(dataset)
+    if docs:
+        assert isinstance(docs, list)
+
+    query = d2.query(dataset, pagesize=10000, deleteddate='null')
     records = list()
     for i, row in enumerate(query, start=1):
         records.append(row)
+        if i % 1000 == 0:
+            break
 
     assert records
 
     return
-
-
-if __name__ == '__main__':
-    test_query()
