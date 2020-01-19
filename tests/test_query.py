@@ -13,6 +13,9 @@ from directaccess import DirectAccessV1, DirectAccessV2, DADatasetException, DAQ
 DIRECTACCESS_API_KEY = os.environ.get('DIRECTACCESS_API_KEY')
 DIRECTACCESS_CLIENT_ID = os.environ.get('DIRECTACCESS_CLIENT_ID')
 DIRECTACCESS_CLIENT_SECRET = os.environ.get('DIRECTACCESS_CLIENT_SECRET')
+LOG_LEVEL = logging.DEBUG
+if os.environ.get('CIRCLE_JOB'):
+    LOG_LEVEL = logging.ERROR
 
 
 def test_query():
@@ -24,7 +27,7 @@ def test_query():
     # Test V1 query
     d1 = DirectAccessV1(
         api_key=DIRECTACCESS_API_KEY,
-        log_level=logging.INFO
+        log_level=LOG_LEVEL
     )
     query = d1.query('rigs', pagesize=1000)
     records = list()
@@ -40,7 +43,7 @@ def test_query():
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
         backoff_factor=10,
-        log_level=logging.INFO
+        log_level=LOG_LEVEL
     )
 
     # Test docs
@@ -90,7 +93,7 @@ def test_query():
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
         backoff_factor=10,
-        log_level=logging.DEBUG,
+        log_level=LOG_LEVEL,
         access_token='invalid'
     )
     invalid_token = d2.access_token
@@ -104,9 +107,9 @@ def test_query():
             api_key=None,
             client_id=None,
             client_secret=None,
-            log_level=logging.DEBUG
+            log_level=LOG_LEVEL
         )
-    except DAAuthException:
+    except DAAuthException as e:
         pass
 
     return

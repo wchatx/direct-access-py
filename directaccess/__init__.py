@@ -1,5 +1,6 @@
 import csv
 import time
+import json
 import base64
 import logging
 from warnings import warn
@@ -98,6 +99,7 @@ class BaseAPI(object):
 
 class DirectAccessV1(BaseAPI):
     """Client for Enverus Drillinginfo Developer API Version 1"""
+
     def __init__(self, api_key, retries=5, backoff_factor=1, **kwargs):
         """
         Enverus Drillinginfo Developer API Version 1 client
@@ -114,6 +116,8 @@ class DirectAccessV1(BaseAPI):
         """
         super(DirectAccessV1, self).__init__(api_key, retries, backoff_factor, **kwargs)
         self.url = self.url + '/v1/direct-access'
+        if not self.api_key:
+            raise DAAuthException('API KEY is required')
         warn('DEPRECATION: Direct Access Version 1 will reach the end of its life in July, 2020. '
              'Please upgrade your application as Version 1 will be inaccessible after that date. '
              'A future version of this module will drop support for Version 1.')
@@ -150,6 +154,7 @@ class DirectAccessV1(BaseAPI):
 
 class DirectAccessV2(BaseAPI):
     """Client for Enverus Drillinginfo Developer API Version 2"""
+
     def __init__(self, client_id, client_secret, api_key, retries=5, backoff_factor=1, links=None, access_token=None,
                  **kwargs):
         """
@@ -240,20 +245,19 @@ class DirectAccessV2(BaseAPI):
             response = self.session.post(url, params=payload)
 
             if not response.ok:
+                if not retries:
+                    raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
+                        response.status_code, response.text)
+                    )
                 if response.status_code == 403:
                     self.logger.warning('Throttled token request. Waiting 60 seconds...')
                     retries -= 1
                     time.sleep(60)
                     continue
 
-            if not retries:
-                raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
-                    response.status_code, response.content)
-                )
-
             break
 
-        self.logger.debug(response.json())
+        self.logger.debug('Token response: ' + json.dumps(response.json(), indent=2))
         self.access_token = response.json()['access_token']
         self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
         return response.json()
