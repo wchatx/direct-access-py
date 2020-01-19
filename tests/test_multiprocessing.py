@@ -11,9 +11,9 @@ from multiprocessing import Process
 
 from directaccess import DirectAccessV2
 
-DIRECTACCESS_API_KEY = os.getenv('DIRECTACCESS_API_KEY')
-DIRECTACCESS_CLIENT_ID = os.getenv('DIRECTACCESS_CLIENT_ID')
-DIRECTACCESS_CLIENT_SECRET = os.getenv('DIRECTACCESS_CLIENT_SECRET')
+DIRECTACCESS_API_KEY = os.environ.get('DIRECTACCESS_API_KEY')
+DIRECTACCESS_CLIENT_ID = os.environ.get('DIRECTACCESS_CLIENT_ID')
+DIRECTACCESS_CLIENT_SECRET = os.environ.get('DIRECTACCESS_CLIENT_SECRET')
 
 
 def query(endpoint, access_token, **options):
