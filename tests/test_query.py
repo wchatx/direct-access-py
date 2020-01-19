@@ -24,7 +24,7 @@ def test_query():
     # Test V1 query
     d1 = DirectAccessV1(
         api_key=DIRECTACCESS_API_KEY,
-        log_level=logging.DEBUG
+        log_level=logging.INFO
     )
     query = d1.query('rigs', pagesize=1000)
     records = list()
@@ -40,7 +40,7 @@ def test_query():
         client_secret=DIRECTACCESS_CLIENT_SECRET,
         retries=5,
         backoff_factor=10,
-        log_level=logging.DEBUG
+        log_level=logging.INFO
     )
 
     # Test docs
