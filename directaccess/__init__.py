@@ -1,3 +1,4 @@
+import io
 import csv
 import time
 import json
@@ -78,7 +79,7 @@ class BaseAPI(object):
         :param log_progress: whether to log progress
         :type log_progress: bool
         """
-        with open(path, mode='w', newline='') as f:
+        with io.open(path, mode='w', newline='') as f:
             writer = csv.writer(f, **kwargs)
             count = None
             for i, row in enumerate(query, start=1):

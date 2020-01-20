@@ -1,5 +1,32 @@
 version: 2
 jobs:
+  build_py2:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-dependency-cache-{{ checksum "setup.py" }}
+
+      - run:
+          name: install python dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install -r requirements.txt
+            python -m pip install pytest
+
+      - run:
+          name: run tests
+          command: |
+            source venv/bin/activate
+            pytest tests
+
+      - save_cache:
+          key: v1-dependency-cache-{{ checksum "setup.py" }}
+          paths:
+            - "venv"
   build:
     docker:
       - image: circleci/python:3.6
@@ -79,6 +106,10 @@ workflows:
   build_and_deploy:
     jobs:
       - build:
+          filters:
+            tags:
+              only: /.*/
+      - build_py2:
           filters:
             tags:
               only: /.*/
