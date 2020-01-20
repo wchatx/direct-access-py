@@ -97,3 +97,45 @@ parameters found in the Direct Access documentation and be passed as keyword arg
 	for row in d2.query('well-origins', county='REEVES', pagesize=10000):
 	    print(row)
 
+
+Version 2 Concepts
+##################
+
+Filter Functions
+****************
+Direct Access version 2 supports filter functions. These can be passed as strings on the keyword arguments.
+
+Some common filters are greater than (``gt()``), less than (``lt()``), ``null``, not null (``not(null)``) and
+between (``btw()``).
+See the Direct Access documentation for a list of all available filters.
+
+.. code-block:: python
+
+	# Get well records updated after 2018-08-01 and without deleted dates
+	for row in d2.query('well-origins', updateddate='gt(2018-08-01)', deleteddate='null'):
+	    print(row)
+
+	# Get permit records with approved dates between 2018-03-01 and 2018-06-01
+	for row in d2.query('permits', approveddate='btw(2018-03-01,2018-06-01)'):
+	    print(row)
+
+Fields keyword
+**************
+You can use the ``fields`` keyword to limit the returned fields in your queries.
+This has the benefit of limiting the API responses to only those fields needed for your
+workflow and will significantly improve the speed of your queries.
+
+.. code-block:: python
+
+	for row in d2.query('rigs', fields='DrillType,LeaseName,PermitDepth'):
+	    print(row)
+
+Escaping
+********
+When making requests containing certain characters like commas, use a backslash to escape them.
+
+.. code-block:: python
+
+	# Escaping the comma before LLC
+	for row in d2.query('producing-entities', curropername='PERCUSSION PETROLEUM OPERATING\, LLC'):
+	    print(row)
