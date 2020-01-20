@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'directaccess'
-copyright = '2020, Cole Howard'
-author = 'Cole Howard'
+copyright = '2020'
+author = 'wchatx'
 
 # The short X.Y version
 version = ''
