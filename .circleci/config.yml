@@ -15,12 +15,12 @@ jobs:
             python -m virtualenv virtualenv
             . virtualenv/bin/activate
             pip install -r requirements.txt
-            pip install pytest
+            pip install pytest==4.6.7
 
       - run:
           name: run tests
           command: |
-            source venv/bin/activate
+            . venv/bin/activate
             pytest tests
 
       - save_cache:
