@@ -84,7 +84,7 @@ class BaseAPI(object):
             count = None
             for i, row in enumerate(query, start=1):
                 count = i
-                if i == 1:
+                if count == 1:
                     writer.writerow(row.keys())
                 writer.writerow(row.values())
 

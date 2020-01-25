@@ -6,27 +6,17 @@ jobs:
     steps:
       - checkout
 
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}
-
       - run:
           name: install python dependencies
           command: |
-            virtualenv venv
-            . venv/bin/activate
-            pip install -r requirements.txt
-            pip install pytest=4.6.7
+            pip install --user -r requirements.txt
+            pip install --user pytest=4.6.7
 
       - run:
           name: run tests
           command: |
-            . venv/bin/activate
             pytest tests
 
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}
-          paths:
-            - "venv"
   build:
     docker:
       - image: circleci/python:3.6
