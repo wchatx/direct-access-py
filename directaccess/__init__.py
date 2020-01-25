@@ -4,6 +4,7 @@ import json
 import base64
 import logging
 from warnings import warn
+from collections import OrderedDict
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -80,12 +81,11 @@ class BaseAPI(object):
         :type log_progress: bool
         :return: the newly created CSV file path
         """
-        # f = open(path, mode='wb') if sys.version_info[0] == 2 else open(path, mode='wb')
-
         with open(path, mode='wb') as f:
             writer = csv.writer(f, **kwargs)
             count = None
             for i, row in enumerate(query, start=1):
+                row = OrderedDict(sorted(row.items(), key=lambda t: t[0]))
                 count = i
                 if count == 1:
                     writer.writerow(row.keys())
