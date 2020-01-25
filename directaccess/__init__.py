@@ -1,5 +1,4 @@
 import sys
-import csv
 import time
 import json
 import base64
@@ -9,7 +8,7 @@ from warnings import warn
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-# import unicodecsv as csv
+import unicodecsv as csv
 
 
 class DAAuthException(Exception):
@@ -81,23 +80,24 @@ class BaseAPI(object):
         :type log_progress: bool
         :return: the newly created CSV file path
         """
-        f = open(path, mode='wb') if sys.version_info[0] == 2 else open(path, mode='w', newline='')
-        writer = csv.writer(f, **kwargs)
-        count = None
-        for i, row in enumerate(query, start=1):
-            count = i
-            if count == 1:
-                writer.writerow(row.keys())
-            writer.writerow(row.values())
+        # f = open(path, mode='wb') if sys.version_info[0] == 2 else open(path, mode='wb')
 
-            if log_progress and i % 100000 == 0:
-                self.logger.info('Wrote {count} records to file {path}'.format(
-                    count=count, path=path
-                ))
-        self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
-            path=path, count=count
-        ))
-        f.close()
+        with open(path, mode='wb') as f:
+            writer = csv.writer(f, **kwargs)
+            count = None
+            for i, row in enumerate(query, start=1):
+                count = i
+                if count == 1:
+                    writer.writerow(row.keys())
+                writer.writerow(row.values())
+
+                if log_progress and i % 100000 == 0:
+                    self.logger.info('Wrote {count} records to file {path}'.format(
+                        count=count, path=path
+                    ))
+            self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
+                path=path, count=count
+            ))
         return path
 
 

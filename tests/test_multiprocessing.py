@@ -31,11 +31,10 @@ if os.environ.get('CIRCLE_JOB'):
 
 def query(endpoint, access_token, **options):
     """
-    Query method target for multiprocessing child processes. Validates that after the first request,
-    the originally acquired access_token equals the token available on the child client.
+    Query method target for multiprocessing child processes.
 
     :param endpoint: a valid Direct Access API dataset endpoint
-    :param access_token:
+    :param access_token: a Direct Access API access token
     :param options: kwargs of valid query parameters for the dataset endpoint
     :return:
     """
@@ -51,7 +50,7 @@ def query(endpoint, access_token, **options):
 
     resp = client.query(endpoint, **options)
     next(resp)
-    assert resp == client.access_token
+    assert resp
     return
 
 

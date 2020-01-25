@@ -41,7 +41,7 @@ setup(
     keywords=['enverus', 'drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
-    install_requires=['requests>=2.5.1, <3'],
+    install_requires=['requests>=2.5.1, <3', 'unicodecsv==0.14.1'],
     cmdclass={
         'verify': VerifyVersionCommand,
     },
