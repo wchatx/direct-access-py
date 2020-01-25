@@ -1,4 +1,4 @@
-import io
+import sys
 import csv
 import time
 import json
@@ -9,6 +9,7 @@ from warnings import warn
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+# import unicodecsv as csv
 
 
 class DAAuthException(Exception):
@@ -74,28 +75,30 @@ class BaseAPI(object):
             d2.to_csv(query, '/path/to/rigs.csv', delimiter='\\t')
 
         :param query: DirectAccessV1 or DirectAccessV2 query object
-        :param path: filesystem path for created CSV
+        :param path: relative or absolute filesystem path for created CSV
         :type path: str
-        :param log_progress: whether to log progress
+        :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
+        :return: the newly created CSV file path
         """
-        with io.open(path, mode='w', newline='') as f:
-            writer = csv.writer(f, **kwargs)
-            count = None
-            for i, row in enumerate(query, start=1):
-                count = i
-                if count == 1:
-                    writer.writerow(row.keys())
-                writer.writerow(row.values())
+        f = open(path, mode='wb') if sys.version_info[0] == 2 else open(path, mode='w', newline='')
+        writer = csv.writer(f, **kwargs)
+        count = None
+        for i, row in enumerate(query, start=1):
+            count = i
+            if count == 1:
+                writer.writerow(row.keys())
+            writer.writerow(row.values())
 
-                if log_progress and i % 100000 == 0:
-                    self.logger.info('Wrote {count} records to file {path}'.format(
-                        count=count, path=path
-                    ))
-            self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
-                path=path, count=count
-            ))
-        return
+            if log_progress and i % 100000 == 0:
+                self.logger.info('Wrote {count} records to file {path}'.format(
+                    count=count, path=path
+                ))
+        self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
+            path=path, count=count
+        ))
+        f.close()
+        return path
 
 
 class DirectAccessV1(BaseAPI):
