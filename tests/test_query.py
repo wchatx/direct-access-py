@@ -13,6 +13,16 @@ from directaccess import DirectAccessV1, DirectAccessV2, DADatasetException, DAQ
 DIRECTACCESS_API_KEY = os.environ.get('DIRECTACCESS_API_KEY')
 DIRECTACCESS_CLIENT_ID = os.environ.get('DIRECTACCESS_CLIENT_ID')
 DIRECTACCESS_CLIENT_SECRET = os.environ.get('DIRECTACCESS_CLIENT_SECRET')
+
+if not os.environ.get('DIRECTACCESS_ACCESS_TOKEN'):
+    access_token = DirectAccessV2(
+        api_key=DIRECTACCESS_API_KEY,
+        client_id=DIRECTACCESS_CLIENT_ID,
+        client_secret=DIRECTACCESS_CLIENT_SECRET,
+    ).access_token
+    os.environ['DIRECTACCESS_ACCESS_TOKEN'] = access_token
+DIRECTACCESS_ACCESS_TOKEN = os.environ.get('DIRECTACCESS_ACCESS_TOKEN')
+
 LOG_LEVEL = logging.DEBUG
 if os.environ.get('CIRCLE_JOB'):
     LOG_LEVEL = logging.ERROR

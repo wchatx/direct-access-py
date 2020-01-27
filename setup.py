@@ -6,7 +6,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.install import install
 
-VERSION = '1.3.1'
+VERSION = '1.4.0'
 
 
 class VerifyVersionCommand(install):
@@ -41,7 +41,7 @@ setup(
     keywords=['enverus', 'drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
-    install_requires=['requests>=2.5.1, <3'],
+    install_requires=['requests>=2.5.1, <3', 'unicodecsv==0.14.1'],
     cmdclass={
         'verify': VerifyVersionCommand,
     },

@@ -1,13 +1,15 @@
-import csv
+import sys
 import time
 import json
 import base64
 import logging
 from warnings import warn
+from collections import OrderedDict
 
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+import unicodecsv as csv
 
 
 class DAAuthException(Exception):
@@ -73,17 +75,19 @@ class BaseAPI(object):
             d2.to_csv(query, '/path/to/rigs.csv', delimiter='\\t')
 
         :param query: DirectAccessV1 or DirectAccessV2 query object
-        :param path: filesystem path for created CSV
+        :param path: relative or absolute filesystem path for created CSV
         :type path: str
-        :param log_progress: whether to log progress
+        :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
+        :return: the newly created CSV file path
         """
-        with open(path, mode='w', newline='') as f:
+        with open(path, mode='wb') as f:
             writer = csv.writer(f, **kwargs)
             count = None
             for i, row in enumerate(query, start=1):
+                row = OrderedDict(sorted(row.items(), key=lambda t: t[0]))
                 count = i
-                if i == 1:
+                if count == 1:
                     writer.writerow(row.keys())
                 writer.writerow(row.values())
 
@@ -94,7 +98,7 @@ class BaseAPI(object):
             self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
                 path=path, count=count
             ))
-        return
+        return path
 
 
 class DirectAccessV1(BaseAPI):
