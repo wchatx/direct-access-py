@@ -8,7 +8,6 @@ from uuid import uuid4
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
-from datetime import datetime
 from collections import OrderedDict
 
 import requests
@@ -343,15 +342,17 @@ class DirectAccessV2(BaseAPI):
         except ImportError:
             raise Exception('pandas not installed. This method requires pandas >= 0.24.0')
 
-        ddl = self.ddl(dataset, database='mssql').split('\n')[1:]
-        if not ddl[-1]:
-            ddl = ddl[:-1]
+        ddl = self.ddl(dataset, database='mssql')
+        try:
+            pk = re.findall(r'PRIMARY KEY \(([a-z]*)\)', ddl)[0]
+        except IndexError:
+            pk = None
+        self.logger.debug('pk: {}'.format(pk))
+        ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
 
-        pk = re.findall(r'\(([a-z]*)\)', ddl[-1])[0]
-        if 'CONSTRAINT' in ddl[-1]:
-            ddl = ddl[:-1]
+        date_cols = [k for k, v in ddl.items() if v == 'DATETIME']
+        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
 
-        # Filter DDL down to fields contained in an actual request
         pagesize = options.pop('pagesize')
         try:
             filter_ = OrderedDict(
@@ -362,11 +363,16 @@ class DirectAccessV2(BaseAPI):
             )
         except StopIteration:
             raise Exception('No results returned from query')
+        self.links = None
         if pagesize:
             options['pagesize'] = pagesize
 
-        pk = [x for x in filter_ if pk.upper() == x.upper()][0]
-        self.logger.debug('pk: {}'.format(pk))
+        if pk:
+            try:
+                pk = [x for x in filter_ if pk.upper() == x.upper()][0]
+            except IndexError:
+                pk = None
+            self.logger.debug('pk: {}'.format(pk))
 
         dtypes_mapping = {
             'TEXT': 'object',
@@ -376,16 +382,12 @@ class DirectAccessV2(BaseAPI):
             'VARCHAR(5)': 'bool'
         }
 
-        dtypes = {x.split(' ')[0]: dtypes_mapping[x.split(' ')[1][:-1]] for x in ddl if x.split(' ')[0] in filter_}
+        dtypes = {k: dtypes_mapping[v] for k, v in ddl.items() if k in filter_}
         self.logger.debug('dtypes:\n{}'.format(json.dumps(dtypes, indent=2)))
-
-        date_cols = [k for k, v in dtypes.items() if v == 'DATETIME' and k in filter_]
-        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
 
         t = mkdtemp()
         self.logger.debug('Created temporary directory: ' + t)
 
-        self.links = None
         query = self.query(dataset, **options)
         try:
             df = pandas.read_csv(
