@@ -1,9 +1,12 @@
-import sys
+import os
 import time
 import json
 import base64
 import logging
+from uuid import uuid4
 from warnings import warn
+from shutil import rmtree
+from tempfile import mkdtemp
 from collections import OrderedDict
 
 import requests
@@ -309,6 +312,63 @@ class DirectAccessV2(BaseAPI):
         response = self.session.head(url, params=options)
         count = response.headers.get('X-Query-Record-Count')
         return int(count)
+
+    def to_dataframe(self, dataset, log_progress=True, **options):
+        """
+
+        :param dataset:
+        :param log_progress:
+        :param options:
+        :return:
+        """
+        try:
+            import pandas
+        except ImportError:
+            raise Exception('pandas not installed. This method requires pandas >= 0.21.1')
+
+        ddl = self.ddl(dataset, database='mssql').split('\n')[1:-1]
+        # DDL response sometimes includes an extra line at the end. Check if CONSTRAINT still in the list and remove
+        if 'CONSTRAINT' in ddl[-1]:
+            ddl = ddl[:-1]
+
+        # Filter DDL down to fields contained in an actual request
+        options.pop('pagesize')
+        try:
+            filter_ = OrderedDict(
+                sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
+            ).keys()
+            self.logger.debug(
+                'Fields retrieved from query response: {}'.format(json.dumps(filter_, indent=2, default=str)))
+        except StopIteration:
+            raise Exception(f'No results returned from query')
+
+        dtypes_mapping = {
+            'TEXT': str,
+            'NUMERIC': float,
+            'DATETIME': str,
+            'INT': float,
+            'VARCHAR(5)': bool
+        }
+
+        dtypes = {x.split(' ')[0]: dtypes_mapping[x.split(' ')[1][:-1]] for x in ddl if x.split(' ')[0] in filter_}
+        self.logger.debug(dtypes)
+
+        t = mkdtemp()
+        self.logger.debug('Created temporary directory: ' + t)
+
+        self.links = None
+        query = self.query(dataset, **options)
+        try:
+            df = pandas.read_csv(
+                filepath_or_buffer=self.to_csv(
+                    query, os.path.join(t, '{}.csv'.format(uuid4().hex)), delimiter='|', log_progress=log_progress
+                ),
+                sep='|', dtype=dtypes
+            )
+        finally:
+            rmtree(t)
+            self.logger.debug('Removed temporary directory')
+        return df
 
     def query(self, dataset, **options):
         """
