@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import base64
@@ -7,12 +8,13 @@ from uuid import uuid4
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
+from datetime import datetime
 from collections import OrderedDict
 
 import requests
+import unicodecsv as csv
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-import unicodecsv as csv
 
 
 class DAAuthException(Exception):
@@ -315,43 +317,70 @@ class DirectAccessV2(BaseAPI):
 
     def to_dataframe(self, dataset, log_progress=True, **options):
         """
+        Write query results to a pandas Dataframe with properly set dtypes and index columns.
 
-        :param dataset:
-        :param log_progress:
-        :param options:
-        :return:
+        This works by requesting the DDL for `dataset` and manipulating the text to build a list of dtypes, date columns
+        and the index column. It then makes a query request for `dataset` to ensure we know the exact fields to expect,
+        (ie, if `fields` was a provided query parameter and the result will have fewer fields than the DDL).
+
+        This method is potentially fragile. The API's `docs` feature is preferable but not yet available on all
+        endpoints.
+
+        Query results are written to a temporary CSV file and then read into the dataframe. The CSV is removed
+        afterwards.
+
+        pandas version 0.24.0 or higher is required for use of the Int64 dtype allowing integers with NaN values.
+
+        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
+        :type dataset: str
+        :param log_progress: whether to log progress. if True, log a message with current written count
+        :type log_progress: bool
+        :param options: query parameters as keyword arguments
+        :return: pandas dataframe
         """
         try:
             import pandas
         except ImportError:
-            raise Exception('pandas not installed. This method requires pandas >= 0.21.1')
+            raise Exception('pandas not installed. This method requires pandas >= 0.24.0')
 
-        ddl = self.ddl(dataset, database='mssql').split('\n')[1:-1]
-        # DDL response sometimes includes an extra line at the end. Check if CONSTRAINT still in the list and remove
+        ddl = self.ddl(dataset, database='mssql').split('\n')[1:]
+        if not ddl[-1]:
+            ddl = ddl[:-1]
+
+        pk = re.findall(r'\(([a-z]*)\)', ddl[-1])[0]
         if 'CONSTRAINT' in ddl[-1]:
             ddl = ddl[:-1]
 
         # Filter DDL down to fields contained in an actual request
-        options.pop('pagesize')
+        pagesize = options.pop('pagesize')
         try:
             filter_ = OrderedDict(
                 sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
             ).keys()
             self.logger.debug(
-                'Fields retrieved from query response: {}'.format(json.dumps(filter_, indent=2, default=str)))
+                'Fields retrieved from query response: {}'.format(json.dumps(filter_, indent=2, default=str))
+            )
         except StopIteration:
-            raise Exception(f'No results returned from query')
+            raise Exception('No results returned from query')
+        if pagesize:
+            options['pagesize'] = pagesize
+
+        pk = [x for x in filter_ if pk.upper() == x.upper()][0]
+        self.logger.debug('pk: {}'.format(pk))
 
         dtypes_mapping = {
-            'TEXT': str,
-            'NUMERIC': float,
-            'DATETIME': str,
-            'INT': float,
-            'VARCHAR(5)': bool
+            'TEXT': 'object',
+            'NUMERIC': 'float64',
+            'DATETIME': 'object',
+            'INT': 'Int64',
+            'VARCHAR(5)': 'bool'
         }
 
         dtypes = {x.split(' ')[0]: dtypes_mapping[x.split(' ')[1][:-1]] for x in ddl if x.split(' ')[0] in filter_}
-        self.logger.debug(dtypes)
+        self.logger.debug('dtypes:\n{}'.format(json.dumps(dtypes, indent=2)))
+
+        date_cols = [k for k, v in dtypes.items() if v == 'DATETIME' and k in filter_]
+        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
 
         t = mkdtemp()
         self.logger.debug('Created temporary directory: ' + t)
@@ -363,7 +392,10 @@ class DirectAccessV2(BaseAPI):
                 filepath_or_buffer=self.to_csv(
                     query, os.path.join(t, '{}.csv'.format(uuid4().hex)), delimiter='|', log_progress=log_progress
                 ),
-                sep='|', dtype=dtypes
+                sep='|',
+                dtype=dtypes,
+                index_col=pk,
+                parse_dates=date_cols
             )
         finally:
             rmtree(t)
