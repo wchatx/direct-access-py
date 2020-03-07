@@ -28,6 +28,10 @@ def read(fname):
     return content
 
 
+pandas = [
+    'pandas>=0.24.0'
+]
+
 setup(
     name='directaccess',
     version=VERSION,
@@ -42,6 +46,7 @@ setup(
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
     install_requires=['requests>=2.5.1, <3', 'unicodecsv==0.14.1'],
+    extras_require={'pandas': pandas},
     cmdclass={
         'verify': VerifyVersionCommand,
     },
