@@ -13,5 +13,5 @@ DirectAccessV2
 --------------
 
 .. autoclass:: directaccess.DirectAccessV2
-   :members: get_access_token, ddl, docs, count, query, to_csv
+   :members: get_access_token, ddl, docs, count, query, to_csv, to_dataframe
    :special-members:
