@@ -373,9 +373,6 @@ class DirectAccessV2(BaseAPI):
         self.logger.debug('index_col: {}'.format(index_col))
         ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
 
-        date_cols = [k for k, v in ddl.items() if v == 'DATETIME']
-        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
-
         pagesize = options.pop('pagesize')
         try:
             filter_ = OrderedDict(
@@ -398,6 +395,9 @@ class DirectAccessV2(BaseAPI):
             self.logger.warning('Could not discover index col(s): {}'.format(e))
             index_col = None
         self.logger.debug('index_col: {}'.format(index_col))
+
+        date_cols = [k for k, v in ddl.items() if v == 'DATETIME' and k in filter_]
+        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
 
         dtypes_mapping = {
             'TEXT': 'object',
