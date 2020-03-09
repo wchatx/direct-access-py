@@ -314,13 +314,15 @@ class DirectAccessV2(BaseAPI):
         count = response.headers.get('X-Query-Record-Count')
         return int(count)
 
-    def to_dataframe(self, dataset, log_progress=True, **options):
+    def to_dataframe(self, dataset, converters=None, log_progress=True, **options):
         """
         Write query results to a pandas Dataframe with properly set dtypes and index columns.
 
         This works by requesting the DDL for `dataset` and manipulating the text to build a list of dtypes, date columns
-        and the index column. It then makes a query request for `dataset` to ensure we know the exact fields to expect,
-        (ie, if `fields` was a provided query parameter and the result will have fewer fields than the DDL).
+        and the index column(s). It then makes a query request for `dataset` to ensure we know the exact fields
+        to expect, (ie, if `fields` was a provided query parameter and the result will have fewer fields than the DDL).
+
+        For endpoints with composite primary keys, a pandas MultiIndex is created.
 
         This method is potentially fragile. The API's `docs` feature is preferable but not yet available on all
         endpoints.
@@ -328,10 +330,31 @@ class DirectAccessV2(BaseAPI):
         Query results are written to a temporary CSV file and then read into the dataframe. The CSV is removed
         afterwards.
 
-        pandas version 0.24.0 or higher is required for use of the Int64 dtype allowing integers with NaN values.
+        pandas version 0.24.0 or higher is required for use of the Int64 dtype allowing integers with NaN values. It is
+        not possible to coerce missing values for columns of dtype bool and so these are set to `object` dtype.
+
+        ::
+
+            d2 = DirectAccessV2(client_id, client_secret, api_key)
+            # Create a Texas permits dataframe, removing commas from Survey names and replacing the state
+            # abbreviation with the complete name.
+            df = d2.to_dataframe(
+                dataset='permits',
+                deleteddate='null',
+                pagesize=100000,
+                stateprovince='TX',
+                converters={
+                    'StateProvince': lambda x: 'TEXAS',
+                    'Survey': lambda x: x.replace(',', '')
+                }
+            )
+            df.head(10)
 
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :type dataset: str
+        :param converters: Dict of functions for converting values in certain columns.
+        Keys can either be integers or column labels.
+        :type converters: dict
         :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
         :param options: query parameters as keyword arguments
@@ -344,10 +367,10 @@ class DirectAccessV2(BaseAPI):
 
         ddl = self.ddl(dataset, database='mssql')
         try:
-            pk = re.findall(r'PRIMARY KEY \(([a-z]*)\)', ddl)[0]
+            index_col = re.findall(r'PRIMARY KEY \(([a-z0-9,]*)\)', ddl)[0].split(',')
         except IndexError:
-            pk = None
-        self.logger.debug('pk: {}'.format(pk))
+            index_col = None
+        self.logger.debug('index_col: {}'.format(index_col))
         ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
 
         date_cols = [k for k, v in ddl.items() if v == 'DATETIME']
@@ -359,7 +382,7 @@ class DirectAccessV2(BaseAPI):
                 sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
             ).keys()
             self.logger.debug(
-                'Fields retrieved from query response: {}'.format(json.dumps(filter_, indent=2, default=str))
+                'Fields retrieved from query response: {}'.format(json.dumps(list(filter_), indent=2, default=str))
             )
         except StopIteration:
             raise Exception('No results returned from query')
@@ -367,21 +390,22 @@ class DirectAccessV2(BaseAPI):
         if pagesize:
             options['pagesize'] = pagesize
 
-        if pk:
-            try:
-                pk = [x for x in filter_ if pk.upper() == x.upper()][0]
-            except IndexError:
-                pk = None
-            self.logger.debug('pk: {}'.format(pk))
+        try:
+            index_col = [x for x in filter_ if x.upper() in [y.upper() for y in index_col]]
+            if index_col and len(index_col) == 1:
+                index_col = index_col[0]
+        except (IndexError, TypeError) as e:
+            self.logger.warning('Could not discover index col(s): {}'.format(e))
+            index_col = None
+        self.logger.debug('index_col: {}'.format(index_col))
 
         dtypes_mapping = {
             'TEXT': 'object',
             'NUMERIC': 'float64',
             'DATETIME': 'object',
             'INT': 'Int64',
-            'VARCHAR(5)': 'bool'
+            'VARCHAR(5)': 'object'
         }
-
         dtypes = {k: dtypes_mapping[v] for k, v in ddl.items() if k in filter_}
         self.logger.debug('dtypes:\n{}'.format(json.dumps(dtypes, indent=2)))
 
@@ -390,15 +414,18 @@ class DirectAccessV2(BaseAPI):
 
         query = self.query(dataset, **options)
         try:
-            df = pandas.read_csv(
+            chunks = pandas.read_csv(
                 filepath_or_buffer=self.to_csv(
                     query, os.path.join(t, '{}.csv'.format(uuid4().hex)), delimiter='|', log_progress=log_progress
                 ),
                 sep='|',
                 dtype=dtypes,
-                index_col=pk,
-                parse_dates=date_cols
+                index_col=index_col,
+                parse_dates=date_cols,
+                chunksize=options.get('pagesize', 100000),
+                converters=converters
             )
+            df = pandas.concat(chunks)
         finally:
             rmtree(t)
             self.logger.debug('Removed temporary directory')
