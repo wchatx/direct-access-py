@@ -5,6 +5,7 @@ import json
 import base64
 import logging
 from uuid import uuid4
+from math import floor
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -26,6 +27,18 @@ class DAQueryException(Exception):
 
 class DADatasetException(Exception):
     pass
+
+
+def _chunks(iterable, n):
+    """
+    Return iterables with n members from an input iterable
+    From: http://stackoverflow.com/a/8290508
+    :param iterable: the iterable to chunk up
+    :param n: max number of items in chunked list
+    """
+    l = len(iterable)
+    for ndx in range(1, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
 
 
 class BaseAPI(object):
@@ -446,10 +459,20 @@ class DirectAccessV2(BaseAPI):
         """
         url = self.url + '/' + dataset
 
+        query_chunks = None
+        for field, v in options.items():
+            if 'in(' in str(v) and len(str(v)) > 1950:
+                values = re.split(r'in\((.*?)\)', options[field])[1].split(',')
+                chunksize = int(floor(1950 / len(max(values))))
+                query_chunks = (field, [x for x in _chunks(values, chunksize)])
+
         while True:
             if self.links:
                 response = self.session.get(self.url + self.links['next']['url'])
             else:
+                if query_chunks and query_chunks[1]:
+                    options[query_chunks[0]] = 'in({})'.format(','.join(query_chunks[1].pop(0)))
+
                 response = self.session.get(url, params=options)
 
             if not response.ok:
@@ -461,6 +484,10 @@ class DirectAccessV2(BaseAPI):
 
             if not len(records):
                 self.links = None
+
+                if query_chunks and query_chunks[1]:
+                    continue
+
                 break
 
             if 'next' in response.links:
