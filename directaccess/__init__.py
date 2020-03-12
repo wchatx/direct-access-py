@@ -366,7 +366,7 @@ class DirectAccessV2(BaseAPI):
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :type dataset: str
         :param converters: Dict of functions for converting values in certain columns.
-        Keys can either be integers or column labels.
+            Keys can either be integers or column labels.
         :type converters: dict
         :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
@@ -386,7 +386,7 @@ class DirectAccessV2(BaseAPI):
         self.logger.debug('index_col: {}'.format(index_col))
         ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
 
-        pagesize = options.pop('pagesize')
+        pagesize = options.pop('pagesize') if 'pagesize' in options else None
         try:
             filter_ = OrderedDict(
                 sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
@@ -471,7 +471,7 @@ class DirectAccessV2(BaseAPI):
                 response = self.session.get(self.url + self.links['next']['url'])
             else:
                 if query_chunks and query_chunks[1]:
-                    options[query_chunks[0]] = 'in({})'.format(','.join(query_chunks[1].pop(0)))
+                    options[query_chunks[0]] = 'in({})'.format(','.join([str(x) for x in query_chunks[1].pop(0)]))
 
                 response = self.session.get(url, params=options)
 
