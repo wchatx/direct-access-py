@@ -41,7 +41,7 @@ rows = filter(lambda x:
               and x['UpperPerf'] <= 3000,
               query)
 
-# Execute the query and filter the reponses
+# Execute the query and filter the responses
 # Note that there will be periods of apparent inactivity while records we don't need are tossed
 for row in rows:
     print(row)
