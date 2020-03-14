@@ -9,6 +9,7 @@ from math import floor
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
+from typing import Generator
 from collections import OrderedDict
 
 import requests
@@ -327,7 +328,45 @@ class DirectAccessV2(BaseAPI):
         count = response.headers.get('X-Query-Record-Count')
         return int(count)
 
-    def to_dataframe(self, dataset, converters=None, log_progress=True, **options):
+    @staticmethod
+    def in_(items):
+        """
+        Helper method for providing values to the API's `in()` filter function.
+
+        The API currently supports GET requests to dataset endpoints. When providing a large list of values to the API's
+        `in()` filter function, it's necessary to chunk up the values to avoid URLs larger than 2048 characters. The
+        `query` method of this class handles the chunking transparently; this helper method simply stringifies
+        the input items into the correct syntax.
+
+        ::
+
+            d2 = DirectAccessV2(client_id, client_secret, api_key)
+            # Query well-origins
+            well_origins_query = d2.query(
+                dataset='well-origins',
+                deleteddate='null',
+                pagesize=100000
+            )
+            # Get all UIDs for well-origins
+            uid_parent_ids = [x['UID'] for x in well_origins_query]
+            # Provide the UIDs to wellbores endpoint
+            wellbores_query = d2.query(
+                dataset='wellbores',
+                deleteddate='null',
+                pagesize=100000,
+                uidparent=in_(uid_parent_ids)
+            )
+
+        :param items: list or generator of values to provide to in() filter function
+        :return: str to provide to DirectAccessV2 `query` method
+        """
+        if not isinstance(items, list) and not isinstance(items, Generator):
+            raise DAQueryException('Argument provided was not a list or generator. Type provided: {}'.format(
+                type(items)
+            ))
+        return 'in({})'.format(','.join([str(x) for x in items]))
+
+    def to_dataframe(self, dataset, converters=None, as_chunks=False, log_progress=True, **options):
         """
         Write query results to a pandas Dataframe with properly set dtypes and index columns.
 
@@ -368,6 +407,10 @@ class DirectAccessV2(BaseAPI):
         :param converters: Dict of functions for converting values in certain columns.
             Keys can either be integers or column labels.
         :type converters: dict
+        :param as_chunks: if True, yield pandas TextFileReader objects in chunks. The size of each chunk is pagesize
+            if provided and 100,000 when not. Useful when the size of a dataframe object would cause memory issues.
+            If False, the returned object is the full pandas dataframe.
+        :type as_chunks: bool
         :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
         :param options: query parameters as keyword arguments
@@ -438,11 +481,15 @@ class DirectAccessV2(BaseAPI):
                 chunksize=options.get('pagesize', 100000),
                 converters=converters
             )
-            df = pandas.concat(chunks)
+            if as_chunks:
+                for chunk in chunks:
+                    yield chunk
+            else:
+                df = pandas.concat(chunks)
+                return df
         finally:
             rmtree(t)
             self.logger.debug('Removed temporary directory')
-        return df
 
     def query(self, dataset, **options):
         """
@@ -471,7 +518,7 @@ class DirectAccessV2(BaseAPI):
                 response = self.session.get(self.url + self.links['next']['url'])
             else:
                 if query_chunks and query_chunks[1]:
-                    options[query_chunks[0]] = 'in({})'.format(','.join([str(x) for x in query_chunks[1].pop(0)]))
+                    options[query_chunks[0]] = self.in_(query_chunks[1].pop(0))
 
                 response = self.session.get(url, params=options)
 
