@@ -484,6 +484,7 @@ class DirectAccessV2(BaseAPI):
             if as_chunks:
                 for chunk in chunks:
                     yield chunk
+                return
             else:
                 df = pandas.concat(chunks)
                 return df
