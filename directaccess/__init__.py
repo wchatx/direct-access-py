@@ -9,7 +9,6 @@ from math import floor
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
-from typing import Generator
 from collections import OrderedDict
 
 import requests
@@ -358,10 +357,11 @@ class DirectAccessV2(BaseAPI):
             )
 
         :param items: list or generator of values to provide to in() filter function
+        :type items: list
         :return: str to provide to DirectAccessV2 `query` method
         """
-        if not isinstance(items, list) and not isinstance(items, Generator):
-            raise DAQueryException('Argument provided was not a list or generator. Type provided: {}'.format(
+        if not isinstance(items, list):
+            raise TypeError('Argument provided was not a list. Type provided: {}'.format(
                 type(items)
             ))
         return 'in({})'.format(','.join([str(x) for x in items]))
@@ -482,9 +482,7 @@ class DirectAccessV2(BaseAPI):
                 converters=converters
             )
             if as_chunks:
-                for chunk in chunks:
-                    yield chunk
-                return
+                return (chunk for chunk in chunks)
             else:
                 df = pandas.concat(chunks)
                 return df
