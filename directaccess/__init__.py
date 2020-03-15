@@ -5,6 +5,7 @@ import json
 import base64
 import logging
 from uuid import uuid4
+from math import floor
 from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -26,6 +27,18 @@ class DAQueryException(Exception):
 
 class DADatasetException(Exception):
     pass
+
+
+def _chunks(iterable, n):
+    """
+    Return iterables with n members from an input iterable
+    From: http://stackoverflow.com/a/8290508
+    :param iterable: the iterable to chunk up
+    :param n: max number of items in chunked list
+    """
+    l = len(iterable)
+    for ndx in range(1, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
 
 
 class BaseAPI(object):
@@ -314,7 +327,46 @@ class DirectAccessV2(BaseAPI):
         count = response.headers.get('X-Query-Record-Count')
         return int(count)
 
-    def to_dataframe(self, dataset, converters=None, log_progress=True, **options):
+    @staticmethod
+    def in_(items):
+        """
+        Helper method for providing values to the API's `in()` filter function.
+
+        The API currently supports GET requests to dataset endpoints. When providing a large list of values to the API's
+        `in()` filter function, it's necessary to chunk up the values to avoid URLs larger than 2048 characters. The
+        `query` method of this class handles the chunking transparently; this helper method simply stringifies
+        the input items into the correct syntax.
+
+        ::
+
+            d2 = DirectAccessV2(client_id, client_secret, api_key)
+            # Query well-origins
+            well_origins_query = d2.query(
+                dataset='well-origins',
+                deleteddate='null',
+                pagesize=100000
+            )
+            # Get all UIDs for well-origins
+            uid_parent_ids = [x['UID'] for x in well_origins_query]
+            # Provide the UIDs to wellbores endpoint
+            wellbores_query = d2.query(
+                dataset='wellbores',
+                deleteddate='null',
+                pagesize=100000,
+                uidparent=in_(uid_parent_ids)
+            )
+
+        :param items: list or generator of values to provide to in() filter function
+        :type items: list
+        :return: str to provide to DirectAccessV2 `query` method
+        """
+        if not isinstance(items, list):
+            raise TypeError('Argument provided was not a list. Type provided: {}'.format(
+                type(items)
+            ))
+        return 'in({})'.format(','.join([str(x) for x in items]))
+
+    def to_dataframe(self, dataset, converters=None, as_chunks=False, log_progress=True, **options):
         """
         Write query results to a pandas Dataframe with properly set dtypes and index columns.
 
@@ -353,8 +405,12 @@ class DirectAccessV2(BaseAPI):
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :type dataset: str
         :param converters: Dict of functions for converting values in certain columns.
-        Keys can either be integers or column labels.
+            Keys can either be integers or column labels.
         :type converters: dict
+        :param as_chunks: if True, yield pandas TextFileReader objects in chunks. The size of each chunk is pagesize
+            if provided and 100,000 when not. Useful when the size of a dataframe object would cause memory issues.
+            If False, the returned object is the full pandas dataframe.
+        :type as_chunks: bool
         :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
         :param options: query parameters as keyword arguments
@@ -373,7 +429,7 @@ class DirectAccessV2(BaseAPI):
         self.logger.debug('index_col: {}'.format(index_col))
         ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
 
-        pagesize = options.pop('pagesize')
+        pagesize = options.pop('pagesize') if 'pagesize' in options else None
         try:
             filter_ = OrderedDict(
                 sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
@@ -425,11 +481,14 @@ class DirectAccessV2(BaseAPI):
                 chunksize=options.get('pagesize', 100000),
                 converters=converters
             )
-            df = pandas.concat(chunks)
+            if as_chunks:
+                return (chunk for chunk in chunks)
+            else:
+                df = pandas.concat(chunks)
+                return df
         finally:
             rmtree(t)
             self.logger.debug('Removed temporary directory')
-        return df
 
     def query(self, dataset, **options):
         """
@@ -446,10 +505,20 @@ class DirectAccessV2(BaseAPI):
         """
         url = self.url + '/' + dataset
 
+        query_chunks = None
+        for field, v in options.items():
+            if 'in(' in str(v) and len(str(v)) > 1950:
+                values = re.split(r'in\((.*?)\)', options[field])[1].split(',')
+                chunksize = int(floor(1950 / len(max(values))))
+                query_chunks = (field, [x for x in _chunks(values, chunksize)])
+
         while True:
             if self.links:
                 response = self.session.get(self.url + self.links['next']['url'])
             else:
+                if query_chunks and query_chunks[1]:
+                    options[query_chunks[0]] = self.in_(query_chunks[1].pop(0))
+
                 response = self.session.get(url, params=options)
 
             if not response.ok:
@@ -461,6 +530,10 @@ class DirectAccessV2(BaseAPI):
 
             if not len(records):
                 self.links = None
+
+                if query_chunks and query_chunks[1]:
+                    continue
+
                 break
 
             if 'next' in response.links:
