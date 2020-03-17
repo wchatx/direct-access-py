@@ -66,11 +66,13 @@ class BaseAPI(object):
             'X-API-KEY': self.api_key,
             'User-Agent': 'direct-access-py'
         })
+
+        self._status_forcelist = [500, 502, 503, 504]
         retries = Retry(
             total=self.retries,
             backoff_factor=self.backoff_factor,
             method_whitelist=frozenset(['GET', 'POST', 'HEAD']),
-            status_forcelist=[500, 502, 503, 504]
+            status_forcelist=self._status_forcelist
         )
         self.session.mount('https://', HTTPAdapter(max_retries=retries))
 
@@ -207,23 +209,24 @@ class DirectAccessV2(BaseAPI):
         self.links = links
         self.access_token = access_token
         self.url = self.url + '/v2/direct-access'
+        self.session.hooks['response'].append(self._check_response)
 
         if self.access_token:
             self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
         else:
             self.access_token = self.get_access_token()['access_token']
 
-        self.session.hooks['response'].append(self._check_response)
-
     def _check_response(self, response, *args, **kwargs):
         """
         Check responses for errors.
 
-        If the API returns 400, there was a problem with the provided parameters. Raise DAQueryException
+        If the API returns 400, there was a problem with the provided parameters. Raise DAQueryException.
+        If the API returns 400 and request was to /tokens endpoint, likely bad credentials. Raise DAAuthException.
         If the API returns 401, refresh access token if found and resend request.
-        If the API returns 404, an invalid dataset name was provided. Raise DADatasetException
+        If the API returns 403 and request was to /tokens endpoint, sleep for 60 seconds and try again.
+        If the API returns 404, an invalid dataset name was provided. Raise DADatasetException.
 
-        5xx errors are handled by the session's Retry configuration
+        5xx errors are handled by the session's Retry configuration. Debug logging returns retries remaining.
 
         :param response: a requests Response object
         :type response: requests.Response
@@ -231,10 +234,15 @@ class DirectAccessV2(BaseAPI):
         :param kwargs:
         :return:
         """
+
         if not response.ok:
             self.logger.debug('Response status code: ' + str(response.status_code))
             self.logger.debug('Response text: ' + response.text)
             if response.status_code == 400:
+                if 'tokens' in response.url:
+                    raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
+                        response.status_code, response.text)
+                    )
                 raise DAQueryException(response.text)
             if response.status_code == 401:
                 self.logger.warning('Access token expired. Acquiring a new one...')
@@ -242,8 +250,17 @@ class DirectAccessV2(BaseAPI):
                 request = response.request
                 request.headers['Authorization'] = self.session.headers['Authorization']
                 return self.session.send(request)
+            if response.status_code == 403 and 'tokens' in response.url:
+                self.logger.warning('Throttled token request. Waiting 60 seconds...')
+                self.retries -= 1
+                self.logger.debug('Retries remaining: {}'.format(self.retries))
+                time.sleep(60)
+                request = response.request
+                return self.session.send(request)
             if response.status_code == 404:
                 raise DADatasetException('Invalid dataset name provided')
+            if response.status_code in self._status_forcelist:
+                self.logger.debug('Retries remaining: {}'.format(self.retries))
 
     def get_access_token(self):
         """
@@ -261,23 +278,7 @@ class DirectAccessV2(BaseAPI):
         self.session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
         payload = {'grant_type': 'client_credentials'}
-        retries = self.retries
-        while True:
-            response = self.session.post(url, params=payload)
-
-            if not response.ok:
-                if not retries:
-                    raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
-                        response.status_code, response.text)
-                    )
-                if response.status_code == 403:
-                    self.logger.warning('Throttled token request. Waiting 60 seconds...')
-                    retries -= 1
-                    time.sleep(60)
-                    continue
-
-            break
-
+        response = self.session.post(url, params=payload)
         self.logger.debug('Token response: ' + json.dumps(response.json(), indent=2))
         self.access_token = response.json()['access_token']
         self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
