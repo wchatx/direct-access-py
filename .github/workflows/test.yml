@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [2.7, 3.5, 3.6, 3.7, 3.8]
+        python-version: [2.7, 3.6]
 
     steps:
     - uses: actions/checkout@v2
@@ -28,6 +28,10 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        DIRECTACCESS_API_KEY: ${{secrets.DIRECTACCESS_API_KEY}}
+        DIRECTACCESS_CLIENT_ID: ${{secrets.DIRECTACCESS_CLIENT_ID}}
+        DIRECTACCESS_CLIENT_SECRET: ${{secrets.DIRECTACCESS_CLIENT_SECRET}}
       run: |
         pip install pytest
         pytest
