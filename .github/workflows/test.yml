@@ -29,9 +29,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       env:
-        api_key: ${{secrets.DIRECTACCESS_API_KEY}}
-        client_id: ${{secrets.DIRECTACCESS_CLIENT_ID}}
-        client_secret: ${{secrets.DIRECTACCESS_CLIENT_SECRET}}
+        DIRECTACCESS_API_KEY: ${{secrets.DIRECTACCESS_API_KEY}}
+        DIRECTACCESS_CLIENT_ID: ${{secrets.DIRECTACCESS_CLIENT_ID}}
+        DIRECTACCESS_CLIENT_SECRET: ${{secrets.DIRECTACCESS_CLIENT_SECRET}}
       run: |
         pip install pytest
         pytest
