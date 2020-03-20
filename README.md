@@ -1,5 +1,4 @@
 # direct-access-py
-[![CircleCI](https://circleci.com/gh/wchatx/direct-access-py/tree/master.svg?style=svg)](https://circleci.com/gh/wchatx/direct-access-py/tree/master)
 ![directaccess](https://github.com/wchatx/direct-access-py/workflows/directaccess/badge.svg)
 [![PyPI version](https://badge.fury.io/py/directaccess.svg)](https://badge.fury.io/py/directaccess) 
 

@@ -38,43 +38,42 @@ def _chunks(iterable, n):
     """
     l = len(iterable)
     for ndx in range(1, l, n):
-        yield iterable[ndx:min(ndx + n, l)]
+        yield iterable[ndx : min(ndx + n, l)]
 
 
 class BaseAPI(object):
-    url = 'https://di-api.drillinginfo.com'
+    url = "https://di-api.drillinginfo.com"
 
     def __init__(self, api_key, retries, backoff_factor, **kwargs):
         self.api_key = api_key
         self.retries = retries
         self.backoff_factor = backoff_factor
 
-        if kwargs.get('logger'):
-            self.logger = kwargs.pop('logger').getChild('directaccess')
+        if kwargs.get("logger"):
+            self.logger = kwargs.pop("logger").getChild("directaccess")
         else:
             logging.basicConfig(
-                level=kwargs.pop('log_level', logging.INFO),
-                format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
-                datefmt='%a, %d %b %Y %H:%M:%S'
+                level=kwargs.pop("log_level", logging.INFO),
+                format="%(asctime)s %(name)s %(levelname)-8s %(message)s",
+                datefmt="%a, %d %b %Y %H:%M:%S",
             )
-            self.logger = logging.getLogger('directaccess')
+            self.logger = logging.getLogger("directaccess")
 
         self.session = requests.Session()
-        self.session.verify = kwargs.pop('verify', True)
-        self.session.proxies = kwargs.pop('proxies', {})
-        self.session.headers.update({
-            'X-API-KEY': self.api_key,
-            'User-Agent': 'direct-access-py'
-        })
+        self.session.verify = kwargs.pop("verify", True)
+        self.session.proxies = kwargs.pop("proxies", {})
+        self.session.headers.update(
+            {"X-API-KEY": self.api_key, "User-Agent": "direct-access-py"}
+        )
 
         self._status_forcelist = [500, 502, 503, 504]
         retries = Retry(
             total=self.retries,
             backoff_factor=self.backoff_factor,
-            method_whitelist=frozenset(['GET', 'POST', 'HEAD']),
-            status_forcelist=self._status_forcelist
+            method_whitelist=frozenset(["GET", "POST", "HEAD"]),
+            status_forcelist=self._status_forcelist,
         )
-        self.session.mount('https://', HTTPAdapter(max_retries=retries))
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
 
     def query(self, dataset, **options):
         raise NotImplementedError
@@ -100,7 +99,7 @@ class BaseAPI(object):
         :type log_progress: bool
         :return: the newly created CSV file path
         """
-        with open(path, mode='wb') as f:
+        with open(path, mode="wb") as f:
             writer = csv.writer(f, **kwargs)
             count = None
             for i, row in enumerate(query, start=1):
@@ -111,12 +110,16 @@ class BaseAPI(object):
                 writer.writerow(row.values())
 
                 if log_progress and i % 100000 == 0:
-                    self.logger.info('Wrote {count} records to file {path}'.format(
-                        count=count, path=path
-                    ))
-            self.logger.info('Completed writing CSV file to {path}. Final count {count}'.format(
-                path=path, count=count
-            ))
+                    self.logger.info(
+                        "Wrote {count} records to file {path}".format(
+                            count=count, path=path
+                        )
+                    )
+            self.logger.info(
+                "Completed writing CSV file to {path}. Final count {count}".format(
+                    path=path, count=count
+                )
+            )
         return path
 
 
@@ -138,12 +141,14 @@ class DirectAccessV1(BaseAPI):
         :param kwargs:
         """
         super(DirectAccessV1, self).__init__(api_key, retries, backoff_factor, **kwargs)
-        self.url = self.url + '/v1/direct-access'
+        self.url = self.url + "/v1/direct-access"
         if not self.api_key:
-            raise DAAuthException('API KEY is required')
-        warn('DEPRECATION: Direct Access Version 1 will reach the end of its life in July, 2020. '
-             'Please upgrade your application as Version 1 will be inaccessible after that date. '
-             'A future version of this module will drop support for Version 1.')
+            raise DAAuthException("API KEY is required")
+        warn(
+            "DEPRECATION: Direct Access Version 1 will reach the end of its life in July, 2020. "
+            "Please upgrade your application as Version 1 will be inaccessible after that date. "
+            "A future version of this module will drop support for Version 1."
+        )
 
     def query(self, dataset, **options):
         """
@@ -158,19 +163,19 @@ class DirectAccessV1(BaseAPI):
         :param options: query parameters as keyword arguments
         :return:
         """
-        url = self.url + '/' + dataset
+        url = self.url + "/" + dataset
 
-        if 'page' not in options:
-            options['page'] = 1
+        if "page" not in options:
+            options["page"] = 1
         while True:
             request = self.session.get(url, params=options)
             try:
                 response = request.json()
             except ValueError:
-                raise DAQueryException('Query Error: {}'.format(request.text))
+                raise DAQueryException("Query Error: {}".format(request.text))
             if not len(response):
                 break
-            options['page'] = options['page'] + 1
+            options["page"] = options["page"] + 1
             for record in response:
                 yield record
 
@@ -178,8 +183,17 @@ class DirectAccessV1(BaseAPI):
 class DirectAccessV2(BaseAPI):
     """Client for Enverus Drillinginfo Developer API Version 2"""
 
-    def __init__(self, client_id, client_secret, api_key, retries=5, backoff_factor=1, links=None, access_token=None,
-                 **kwargs):
+    def __init__(
+        self,
+        client_id,
+        client_secret,
+        api_key,
+        retries=5,
+        backoff_factor=1,
+        links=None,
+        access_token=None,
+        **kwargs
+    ):
         """
         Enverus Drillinginfo Developer API Version 2 client
 
@@ -208,13 +222,15 @@ class DirectAccessV2(BaseAPI):
         self.client_secret = client_secret
         self.links = links
         self.access_token = access_token
-        self.url = self.url + '/v2/direct-access'
-        self.session.hooks['response'].append(self._check_response)
+        self.url = self.url + "/v2/direct-access"
+        self.session.hooks["response"].append(self._check_response)
 
         if self.access_token:
-            self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
+            self.session.headers["Authorization"] = "bearer {}".format(
+                self.access_token
+            )
         else:
-            self.access_token = self.get_access_token()['access_token']
+            self.access_token = self.get_access_token()["access_token"]
 
     def _check_response(self, response, *args, **kwargs):
         """
@@ -236,31 +252,33 @@ class DirectAccessV2(BaseAPI):
         """
 
         if not response.ok:
-            self.logger.debug('Response status code: ' + str(response.status_code))
-            self.logger.debug('Response text: ' + response.text)
+            self.logger.debug("Response status code: " + str(response.status_code))
+            self.logger.debug("Response text: " + response.text)
             if response.status_code == 400:
-                if 'tokens' in response.url:
-                    raise DAAuthException('Error getting token. Code: {} Message: {}'.format(
-                        response.status_code, response.text)
+                if "tokens" in response.url:
+                    raise DAAuthException(
+                        "Error getting token. Code: {} Message: {}".format(
+                            response.status_code, response.text
+                        )
                     )
                 raise DAQueryException(response.text)
             if response.status_code == 401:
-                self.logger.warning('Access token expired. Acquiring a new one...')
+                self.logger.warning("Access token expired. Acquiring a new one...")
                 self.get_access_token()
                 request = response.request
-                request.headers['Authorization'] = self.session.headers['Authorization']
+                request.headers["Authorization"] = self.session.headers["Authorization"]
                 return self.session.send(request)
-            if response.status_code == 403 and 'tokens' in response.url:
-                self.logger.warning('Throttled token request. Waiting 60 seconds...')
+            if response.status_code == 403 and "tokens" in response.url:
+                self.logger.warning("Throttled token request. Waiting 60 seconds...")
                 self.retries -= 1
-                self.logger.debug('Retries remaining: {}'.format(self.retries))
+                self.logger.debug("Retries remaining: {}".format(self.retries))
                 time.sleep(60)
                 request = response.request
                 return self.session.send(request)
             if response.status_code == 404:
-                raise DADatasetException('Invalid dataset name provided')
+                raise DADatasetException("Invalid dataset name provided")
             if response.status_code in self._status_forcelist:
-                self.logger.debug('Retries remaining: {}'.format(self.retries))
+                self.logger.debug("Retries remaining: {}".format(self.retries))
 
     def get_access_token(self):
         """
@@ -269,19 +287,23 @@ class DirectAccessV2(BaseAPI):
 
         :return: token response as dict
         """
-        url = self.url + '/tokens'
+        url = self.url + "/tokens"
         if not self.api_key or not self.client_id or not self.client_secret:
-            raise DAAuthException('API_KEY, CLIENT_ID and CLIENT_SECRET are required to generate an access token')
-        self.session.headers['Authorization'] = 'Basic {}'.format(
-            base64.b64encode(':'.join([self.client_id, self.client_secret]).encode()).decode()
+            raise DAAuthException(
+                "API_KEY, CLIENT_ID and CLIENT_SECRET are required to generate an access token"
+            )
+        self.session.headers["Authorization"] = "Basic {}".format(
+            base64.b64encode(
+                ":".join([self.client_id, self.client_secret]).encode()
+            ).decode()
         )
-        self.session.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        self.session.headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-        payload = {'grant_type': 'client_credentials'}
+        payload = {"grant_type": "client_credentials"}
         response = self.session.post(url, params=payload)
-        self.logger.debug('Token response: ' + json.dumps(response.json(), indent=2))
-        self.access_token = response.json()['access_token']
-        self.session.headers['Authorization'] = 'bearer {}'.format(self.access_token)
+        self.logger.debug("Token response: " + json.dumps(response.json(), indent=2))
+        self.access_token = response.json()["access_token"]
+        self.session.headers["Authorization"] = "bearer {}".format(self.access_token)
         return response.json()
 
     def ddl(self, dataset, database):
@@ -293,8 +315,8 @@ class DirectAccessV2(BaseAPI):
         :param database: one of mssql or pg.
         :return: a DDL statement from the Direct Access service as str
         """
-        url = self.url + '/' + dataset
-        self.logger.debug('Retrieving DDL for dataset: ' + dataset)
+        url = self.url + "/" + dataset
+        self.logger.debug("Retrieving DDL for dataset: " + dataset)
         response = self.session.get(url, params=dict(ddl=database))
         return response.text
 
@@ -305,13 +327,15 @@ class DirectAccessV2(BaseAPI):
         :param dataset: a valid dataset name. See the Direct Access documentation for valid values
         :return: docs response for dataset as list[dict] or None if ?docs is not supported on the dataset
         """
-        url = self.url + '/' + dataset
-        self.logger.debug('Retrieving docs for dataset: ' + dataset)
+        url = self.url + "/" + dataset
+        self.logger.debug("Retrieving docs for dataset: " + dataset)
         response = self.session.get(url, params=dict(docs=True))
         if response.status_code == 501:
-            self.logger.warning('docs and example params are not yet supported on dataset {dataset}'.format(
-                dataset=dataset
-            ))
+            self.logger.warning(
+                "docs and example params are not yet supported on dataset {dataset}".format(
+                    dataset=dataset
+                )
+            )
             return
         return response.json()
 
@@ -323,9 +347,9 @@ class DirectAccessV2(BaseAPI):
         :param options: query parameters as keyword arguments
         :return: record count as int
         """
-        url = self.url + '/' + dataset
+        url = self.url + "/" + dataset
         response = self.session.head(url, params=options)
-        count = response.headers.get('X-Query-Record-Count')
+        count = response.headers.get("X-Query-Record-Count")
         return int(count)
 
     @staticmethod
@@ -362,12 +386,16 @@ class DirectAccessV2(BaseAPI):
         :return: str to provide to DirectAccessV2 `query` method
         """
         if not isinstance(items, list):
-            raise TypeError('Argument provided was not a list. Type provided: {}'.format(
-                type(items)
-            ))
-        return 'in({})'.format(','.join([str(x) for x in items]))
+            raise TypeError(
+                "Argument provided was not a list. Type provided: {}".format(
+                    type(items)
+                )
+            )
+        return "in({})".format(",".join([str(x) for x in items]))
 
-    def to_dataframe(self, dataset, converters=None, as_chunks=False, log_progress=True, **options):
+    def to_dataframe(
+        self, dataset, converters=None, as_chunks=False, log_progress=True, **options
+    ):
         """
         Write query results to a pandas Dataframe with properly set dtypes and index columns.
 
@@ -420,67 +448,83 @@ class DirectAccessV2(BaseAPI):
         try:
             import pandas
         except ImportError:
-            raise Exception('pandas not installed. This method requires pandas >= 0.24.0')
+            raise Exception(
+                "pandas not installed. This method requires pandas >= 0.24.0"
+            )
 
-        ddl = self.ddl(dataset, database='mssql')
+        ddl = self.ddl(dataset, database="mssql")
         try:
-            index_col = re.findall(r'PRIMARY KEY \(([a-z0-9,]*)\)', ddl)[0].split(',')
+            index_col = re.findall(r"PRIMARY KEY \(([a-z0-9,]*)\)", ddl)[0].split(",")
         except IndexError:
             index_col = None
-        self.logger.debug('index_col: {}'.format(index_col))
-        ddl = {x.split(' ')[0]: x.split(' ')[1][:-1] for x in ddl.split('\n')[1:] if x and 'CONSTRAINT' not in x}
+        self.logger.debug("index_col: {}".format(index_col))
+        ddl = {
+            x.split(" ")[0]: x.split(" ")[1][:-1]
+            for x in ddl.split("\n")[1:]
+            if x and "CONSTRAINT" not in x
+        }
 
-        pagesize = options.pop('pagesize') if 'pagesize' in options else None
+        pagesize = options.pop("pagesize") if "pagesize" in options else None
         try:
             filter_ = OrderedDict(
-                sorted(next(self.query(dataset, pagesize=1, **options)).items(), key=lambda x: x[0])
+                sorted(
+                    next(self.query(dataset, pagesize=1, **options)).items(),
+                    key=lambda x: x[0],
+                )
             ).keys()
             self.logger.debug(
-                'Fields retrieved from query response: {}'.format(json.dumps(list(filter_), indent=2, default=str))
+                "Fields retrieved from query response: {}".format(
+                    json.dumps(list(filter_), indent=2, default=str)
+                )
             )
         except StopIteration:
-            raise Exception('No results returned from query')
+            raise Exception("No results returned from query")
         self.links = None
         if pagesize:
-            options['pagesize'] = pagesize
+            options["pagesize"] = pagesize
 
         try:
-            index_col = [x for x in filter_ if x.upper() in [y.upper() for y in index_col]]
+            index_col = [
+                x for x in filter_ if x.upper() in [y.upper() for y in index_col]
+            ]
             if index_col and len(index_col) == 1:
                 index_col = index_col[0]
         except (IndexError, TypeError) as e:
-            self.logger.warning('Could not discover index col(s): {}'.format(e))
+            self.logger.warning("Could not discover index col(s): {}".format(e))
             index_col = None
-        self.logger.debug('index_col: {}'.format(index_col))
+        self.logger.debug("index_col: {}".format(index_col))
 
-        date_cols = [k for k, v in ddl.items() if v == 'DATETIME' and k in filter_]
-        self.logger.debug('date columns:\n{}'.format(json.dumps(date_cols, indent=2)))
+        date_cols = [k for k, v in ddl.items() if v == "DATETIME" and k in filter_]
+        self.logger.debug("date columns:\n{}".format(json.dumps(date_cols, indent=2)))
 
         dtypes_mapping = {
-            'TEXT': 'object',
-            'NUMERIC': 'float64',
-            'DATETIME': 'object',
-            'INT': 'Int64',
-            'VARCHAR(5)': 'object'
+            "TEXT": "object",
+            "NUMERIC": "float64",
+            "DATETIME": "object",
+            "INT": "Int64",
+            "VARCHAR(5)": "object",
         }
         dtypes = {k: dtypes_mapping[v] for k, v in ddl.items() if k in filter_}
-        self.logger.debug('dtypes:\n{}'.format(json.dumps(dtypes, indent=2)))
+        self.logger.debug("dtypes:\n{}".format(json.dumps(dtypes, indent=2)))
 
         t = mkdtemp()
-        self.logger.debug('Created temporary directory: ' + t)
+        self.logger.debug("Created temporary directory: " + t)
 
         query = self.query(dataset, **options)
         try:
             chunks = pandas.read_csv(
                 filepath_or_buffer=self.to_csv(
-                    query, os.path.join(t, '{}.csv'.format(uuid4().hex)), delimiter='|', log_progress=log_progress
+                    query,
+                    os.path.join(t, "{}.csv".format(uuid4().hex)),
+                    delimiter="|",
+                    log_progress=log_progress,
                 ),
-                sep='|',
+                sep="|",
                 dtype=dtypes,
                 index_col=index_col,
                 parse_dates=date_cols,
-                chunksize=options.get('pagesize', 100000),
-                converters=converters
+                chunksize=options.get("pagesize", 100000),
+                converters=converters,
             )
             if as_chunks:
                 return (chunk for chunk in chunks)
@@ -489,7 +533,7 @@ class DirectAccessV2(BaseAPI):
                 return df
         finally:
             rmtree(t)
-            self.logger.debug('Removed temporary directory')
+            self.logger.debug("Removed temporary directory")
 
     def query(self, dataset, **options):
         """
@@ -504,18 +548,18 @@ class DirectAccessV2(BaseAPI):
         :param options: query parameters as keyword arguments
         :return: query response as generator
         """
-        url = self.url + '/' + dataset
+        url = self.url + "/" + dataset
 
         query_chunks = None
         for field, v in options.items():
-            if 'in(' in str(v) and len(str(v)) > 1950:
-                values = re.split(r'in\((.*?)\)', options[field])[1].split(',')
+            if "in(" in str(v) and len(str(v)) > 1950:
+                values = re.split(r"in\((.*?)\)", options[field])[1].split(",")
                 chunksize = int(floor(1950 / len(max(values))))
                 query_chunks = (field, [x for x in _chunks(values, chunksize)])
 
         while True:
             if self.links:
-                response = self.session.get(self.url + self.links['next']['url'])
+                response = self.session.get(self.url + self.links["next"]["url"])
             else:
                 if query_chunks and query_chunks[1]:
                     options[query_chunks[0]] = self.in_(query_chunks[1].pop(0))
@@ -523,8 +567,10 @@ class DirectAccessV2(BaseAPI):
                 response = self.session.get(url, params=options)
 
             if not response.ok:
-                raise DAQueryException('Non-200 response: {} {}'.format(
-                    response.status_code, response.text)
+                raise DAQueryException(
+                    "Non-200 response: {} {}".format(
+                        response.status_code, response.text
+                    )
                 )
 
             records = response.json()
@@ -537,7 +583,7 @@ class DirectAccessV2(BaseAPI):
 
                 break
 
-            if 'next' in response.links:
+            if "next" in response.links:
                 self.links = response.links
 
             for record in records:
