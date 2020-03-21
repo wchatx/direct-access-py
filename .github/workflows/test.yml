@@ -33,5 +33,8 @@ jobs:
         DIRECTACCESS_CLIENT_ID: ${{secrets.DIRECTACCESS_CLIENT_ID}}
         DIRECTACCESS_CLIENT_SECRET: ${{secrets.DIRECTACCESS_CLIENT_SECRET}}
       run: |
-        pip install pytest pandas
+        # install numpy < 1.17 in the environment first for py 2.7 support
+        pip install numpy<1.17
+        pip install pandas==0.24.0
+        pip install pytest
         pytest
