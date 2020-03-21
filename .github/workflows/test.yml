@@ -33,5 +33,5 @@ jobs:
         DIRECTACCESS_CLIENT_ID: ${{secrets.DIRECTACCESS_CLIENT_ID}}
         DIRECTACCESS_CLIENT_SECRET: ${{secrets.DIRECTACCESS_CLIENT_SECRET}}
       run: |
-        pip install pytest
+        pip install pytest pandas
         pytest
