@@ -23,12 +23,12 @@ def test_dataframe():
         api_key=DIRECTACCESS_API_KEY,
         client_id=DIRECTACCESS_CLIENT_ID,
         client_secret=DIRECTACCESS_CLIENT_SECRET,
-        access_token=DIRECTACCESS_TOKEN
+        access_token=DIRECTACCESS_TOKEN,
     )
-    df = d2.to_dataframe('rigs', pagesize=10000, deleteddate='null')
+    df = d2.to_dataframe("rigs", pagesize=10000, deleteddate="null")
 
     # Check index is set to API endpoint "primary key"
-    assert df.index.name == 'RigID'
+    assert df.index.name == "RigID"
 
     # Check datetime64 dtypes
     assert is_datetime64_ns_dtype(df.CreatedDate)
