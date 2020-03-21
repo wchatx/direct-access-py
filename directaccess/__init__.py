@@ -378,7 +378,7 @@ class DirectAccessV2(BaseAPI):
                 dataset='wellbores',
                 deleteddate='null',
                 pagesize=100000,
-                uidparent=in_(uid_parent_ids)
+                uidparent=d2.in_(uid_parent_ids)
             )
 
         :param items: list or generator of values to provide to in() filter function

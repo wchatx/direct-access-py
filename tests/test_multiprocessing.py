@@ -1,32 +1,20 @@
-"""
-test_multiprocessing.py
-
-Test that the originally acquired access_token is still valid and that no new
-authentication request was sent from within the child processes.
-"""
-
 import os
 import logging
 from multiprocessing import Process
 
 from directaccess import DirectAccessV2
+from tests.utils import set_token
 
-DIRECTACCESS_API_KEY = os.environ.get('DIRECTACCESS_API_KEY')
-DIRECTACCESS_CLIENT_ID = os.environ.get('DIRECTACCESS_CLIENT_ID')
-DIRECTACCESS_CLIENT_SECRET = os.environ.get('DIRECTACCESS_CLIENT_SECRET')
+set_token()
 
-if not os.environ.get('DIRECTACCESS_ACCESS_TOKEN'):
-    access_token = DirectAccessV2(
-        api_key=DIRECTACCESS_API_KEY,
-        client_id=DIRECTACCESS_CLIENT_ID,
-        client_secret=DIRECTACCESS_CLIENT_SECRET,
-    ).access_token
-    os.environ['DIRECTACCESS_ACCESS_TOKEN'] = access_token
-DIRECTACCESS_ACCESS_TOKEN = os.environ.get('DIRECTACCESS_ACCESS_TOKEN')
 
 LOG_LEVEL = logging.DEBUG
-if os.environ.get('CIRCLE_JOB'):
+if os.environ.get("GITHUB_SHA"):
     LOG_LEVEL = logging.ERROR
+DIRECTACCESS_API_KEY = os.environ.get("DIRECTACCESS_API_KEY")
+DIRECTACCESS_CLIENT_ID = os.environ.get("DIRECTACCESS_CLIENT_ID")
+DIRECTACCESS_CLIENT_SECRET = os.environ.get("DIRECTACCESS_CLIENT_SECRET")
+DIRECTACCESS_TOKEN = os.environ.get("DIRECTACCESS_TOKEN")
 
 
 def query(endpoint, access_token, **options):
@@ -45,7 +33,7 @@ def query(endpoint, access_token, **options):
         retries=5,
         backoff_factor=5,
         access_token=access_token,
-        log_level=LOG_LEVEL
+        log_level=LOG_LEVEL,
     )
 
     resp = client.query(endpoint, **options)
@@ -59,34 +47,14 @@ def test_multiple_processes():
     Launch two child processes, one for rigs and one for permits.
     :return:
     """
-    if not DIRECTACCESS_ACCESS_TOKEN:
-        access_token = DirectAccessV2(
-            api_key=DIRECTACCESS_API_KEY,
-            client_id=DIRECTACCESS_CLIENT_ID,
-            client_secret=DIRECTACCESS_CLIENT_SECRET,
-            retries=5,
-            backoff_factor=10
-        ).access_token
-        os.environ['DIRECTACCESS_ACCESS_TOKEN'] = access_token
-    else:
-        access_token = DIRECTACCESS_ACCESS_TOKEN
-
     procs = list()
     a = Process(
-        target=query,
-        kwargs=dict(
-            endpoint='rigs',
-            access_token=access_token
-        )
+        target=query, kwargs=dict(endpoint="rigs", access_token=DIRECTACCESS_TOKEN)
     )
     procs.append(a)
 
     b = Process(
-        target=query,
-        kwargs=dict(
-            endpoint='permits',
-            access_token=access_token
-        )
+        target=query, kwargs=dict(endpoint="permits", access_token=DIRECTACCESS_TOKEN)
     )
     procs.append(b)
 
