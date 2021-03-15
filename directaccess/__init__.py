@@ -37,7 +37,7 @@ def _chunks(iterable, n):
     :param n: max number of items in chunked list
     """
     l = len(iterable)
-    for ndx in range(1, l, n):
+    for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
 
