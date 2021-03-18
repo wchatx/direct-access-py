@@ -83,8 +83,6 @@ Specify the number of retry attempts in `retries` and the backoff factor in `bac
 ```python
 from directaccess import DirectAccessV2
 
-# Retry 5 times, backing off exponentially 
-# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
 d2 = DirectAccessV2(
     api_key='<your-api-key>',
     client_id='<your-client-id>',
@@ -100,8 +98,6 @@ for more info.
 ```python
 from directaccess import DirectAccessV2
 
-# Retry 5 times, backing off exponentially 
-# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
 d2 = DirectAccessV2(
     api_key='<your-api-key>',
     client_id='<your-client-id>',
@@ -116,8 +112,6 @@ certificate errors instead of ignore them.
 ```python
 from directaccess import DirectAccessV2
 
-# Retry 5 times, backing off exponentially 
-# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
 d2 = DirectAccessV2(
     api_key='<your-api-key>',
     client_id='<your-client-id>',
