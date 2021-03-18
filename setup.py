@@ -6,7 +6,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools.command.install import install
 
-VERSION = '1.4.0'
+VERSION = '1.5.0'
 
 
 class VerifyVersionCommand(install):
@@ -35,7 +35,7 @@ pandas = [
 setup(
     name='directaccess',
     version=VERSION,
-    description='Drillinginfo Direct Access API Python Client',
+    description='Enverus Direct Access API Python Client',
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
     author='Cole Howard',
