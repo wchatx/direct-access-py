@@ -6,7 +6,6 @@ import base64
 import logging
 from uuid import uuid4
 from math import floor
-from warnings import warn
 from shutil import rmtree
 from tempfile import mkdtemp
 from collections import OrderedDict
@@ -38,7 +37,7 @@ def _chunks(iterable, n):
     """
     l = len(iterable)
     for ndx in range(0, l, n):
-        yield iterable[ndx : min(ndx + n, l)]
+        yield iterable[ndx: min(ndx + n, l)]
 
 
 class BaseAPI(object):
@@ -121,63 +120,6 @@ class BaseAPI(object):
                 )
             )
         return path
-
-
-class DirectAccessV1(BaseAPI):
-    """Client for Enverus Drillinginfo Developer API Version 1"""
-
-    def __init__(self, api_key, retries=5, backoff_factor=1, **kwargs):
-        """
-        Enverus Drillinginfo Developer API Version 1 client
-
-        API documentation and credentials can be found at: https://app.drillinginfo.com/direct/#/api/overview
-
-        :param api_key: api key credential.
-        :type api_key: str
-        :param retries: the number of attempts when retrying failed requests with status codes of 500, 502, 503 or 504
-        :type retries: int
-        :param backoff_factor: the factor to use when exponentially backing off prior to retrying a failed request
-        :type backoff_factor: int
-        :param kwargs:
-        """
-        super(DirectAccessV1, self).__init__(api_key, retries, backoff_factor, **kwargs)
-        self.url = self.url + "/v1/direct-access"
-        if not self.api_key:
-            raise DAAuthException("API KEY is required")
-        warn(
-            "DEPRECATION: Direct Access Version 1 will reach the end of its life in July, 2020. "
-            "Please upgrade your application as Version 1 will be inaccessible after that date. "
-            "A future version of this module will drop support for Version 1."
-        )
-
-    def query(self, dataset, **options):
-        """
-        Query Direct Access V1 dataset
-
-        Accepts a dataset name and a variable number of keyword arguments that correspond to the fields specified in
-        the 'Request Parameters' section for each dataset in the Direct Access documentation.
-
-        This method only supports the JSON output provided by the API and yields dicts for each record.
-
-        :param dataset: a valid dataset name. See the Direct Access documentation for valid values
-        :param options: query parameters as keyword arguments
-        :return:
-        """
-        url = self.url + "/" + dataset
-
-        if "page" not in options:
-            options["page"] = 1
-        while True:
-            request = self.session.get(url, params=options)
-            try:
-                response = request.json()
-            except ValueError:
-                raise DAQueryException("Query Error: {}".format(request.text))
-            if not len(response):
-                break
-            options["page"] = options["page"] + 1
-            for record in response:
-                yield record
 
 
 class DirectAccessV2(BaseAPI):
@@ -394,7 +336,7 @@ class DirectAccessV2(BaseAPI):
         return "in({})".format(",".join([str(x) for x in items]))
 
     def to_dataframe(
-        self, dataset, converters=None, as_chunks=False, log_progress=True, **options
+        self, dataset, converters=None, log_progress=True, **options
     ):
         """
         Write query results to a pandas Dataframe with properly set dtypes and index columns.
@@ -436,10 +378,6 @@ class DirectAccessV2(BaseAPI):
         :param converters: Dict of functions for converting values in certain columns.
             Keys can either be integers or column labels.
         :type converters: dict
-        :param as_chunks: if True, yield pandas TextFileReader objects in chunks. The size of each chunk is pagesize
-            if provided and 100,000 when not. Useful when the size of a dataframe object would cause memory issues.
-            If False, the returned object is the full pandas dataframe.
-        :type as_chunks: bool
         :param log_progress: whether to log progress. if True, log a message with current written count
         :type log_progress: bool
         :param options: query parameters as keyword arguments
@@ -526,11 +464,8 @@ class DirectAccessV2(BaseAPI):
                 chunksize=options.get("pagesize", 100000),
                 converters=converters,
             )
-            if as_chunks:
-                return (chunk for chunk in chunks)
-            else:
-                df = pandas.concat(chunks)
-                return df
+            df = pandas.concat(chunks)
+            return df
         finally:
             rmtree(t)
             self.logger.debug("Removed temporary directory")

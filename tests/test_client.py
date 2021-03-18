@@ -3,7 +3,6 @@ import logging
 from tempfile import TemporaryFile
 
 from directaccess import (
-    DirectAccessV1,
     DirectAccessV2,
     DADatasetException,
     DAQueryException,
@@ -21,17 +20,6 @@ DIRECTACCESS_API_KEY = os.environ.get("DIRECTACCESS_API_KEY")
 DIRECTACCESS_CLIENT_ID = os.environ.get("DIRECTACCESS_CLIENT_ID")
 DIRECTACCESS_CLIENT_SECRET = os.environ.get("DIRECTACCESS_CLIENT_SECRET")
 DIRECTACCESS_TOKEN = os.environ.get("DIRECTACCESS_TOKEN")
-
-
-def test_v1_query():
-    d1 = DirectAccessV1(api_key=DIRECTACCESS_API_KEY, log_level=LOG_LEVEL)
-    query = d1.query("rigs", pagesize=1000)
-    records = list()
-    for i, row in enumerate(query, start=1):
-        records.append(row)
-        if i % 1000 == 0:
-            break
-    assert records
 
 
 def test_v2_query():
