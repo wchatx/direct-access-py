@@ -15,21 +15,8 @@ pip install directaccess
 
 ## Usage
 
-### Direct Access Version 1
-For version 1 of the API, create an instance of the DirectAccessV1 class and provide it your API key
-```python
-from directaccess import DirectAccessV1
-
-d1 = DirectAccessV1(api_key='<your-api-key>')
-```
-
-Provide the query method the dataset as the first argument and any query parameters as keyword arguments.
-See valid dataset names and query params in the Direct Access documentation.
-The query method returns a generator of API responses as dicts.
-```python
-for row in d1.query('legal-leases', county_parish='Reeves', state_province='TX', min_expiration_date='2018-06-01'):
-    print(row)
-```
+### Direct Access Version 1 (deprecated)
+Version 1 of the API has been deprecated and removed.
 
 ### Direct Access Version 2
 For version 2 of the API, create an instance of the DirectAccessV2 class, providing it your API key, client id and client secret.
@@ -45,7 +32,7 @@ d2 = DirectAccessV2(
 )
 ```
 
-Like with the V1 class, provide the query method the dataset and query params. All query parameters must match the valid
+Provide the query method the dataset and query params. All query parameters must match the valid
 parameters found in the Direct Access documentation and be passed as keyword arguments.
 ```python
 for row in d2.query('well-origins', county='REEVES', pagesize=10000):
@@ -84,57 +71,57 @@ for row in d2.query('producing-entities', curropername='PERCUSSION PETROLEUM OPE
 
 ```
 
-### Errors
-Direct Access is a data api with hundreds of millions of records depending on your subscription. Networks are inherently unreliable
-and errors are going to happen at some point. This module provides two means of dealing with errors;
-configurable retries with exponential backoff (available for v1 and v2), and exposing the pagination
-link as an attribute (v2 only).  
+### Network request handling
+This module exposes functionality in python-requests for modifying network requests handling, namely:
+* retries and backoff
+* network proxies
+* ssl verification
 
-Retrying while making requests
+#### Retries and backoff
+Specify the number of retry attempts in `retries` and the backoff factor in `backoff_factor`. See the urllib3
+[Retry](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#urllib3.util.Retry) utility API for more info
 ```python
-from directaccess import DirectAccessV1
+from directaccess import DirectAccessV2
 
 # Retry 5 times, backing off exponentially 
 # (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
-d1 = DirectAccessV1(
-    api_key='<your-api-key>',
-    retries=5,
-    backoff_factor=1
-)
-```
-
-In the event of an unrecoverable error, you can write your process in a way that persists the pagination links
-so that you can pick back up where you left off. A basic implementation might look like this:
-```python
-import os
-import json
-from directaccess import DirectAccessV2
-
-RECOVERY_FILE = 'your-api-links.json'
-
 d2 = DirectAccessV2(
     api_key='<your-api-key>',
     client_id='<your-client-id>',
     client_secret='<your-client-secret>',
     retries=5,
-    backoff_factor=1    
+    backoff_factor=1
 )
-
-# if there's an existing recovery file, provide it to the instance
-if os.path.exists(RECOVERY_FILE):
-    with open(RECOVERY_FILE) as f:
-        d2.links = json.loads(f.read())
-
-# interact with the api, writing out a recovery file in the event of an unrecoverable error. 
-# this will overwrite any previously existing file.
-try:
-    for row in d2.query('permits'):
-        print(row)
-except Exception:
-    with open(RECOVERY_FILE, mode='w') as f:
-        f.write(json.dumps(d2.links))
-
 ```
-You could persist the pagination links any way you want. If provided, the DirectAccessV2 class expects a dictionary like 
-the one provided from the [Requests module's links](http://docs.python-requests.org/en/master/user/advanced/#link-headers) 
-and the json example above is just one way to do this.
+
+You can specify a network proxy by passing a dictionary with the host and port of your proxy to `proxies`. See the
+[proxies](https://requests.readthedocs.io/en/master/user/advanced/#proxies) section of the python-requests documentation
+for more info.
+```python
+from directaccess import DirectAccessV2
+
+# Retry 5 times, backing off exponentially 
+# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
+d2 = DirectAccessV2(
+    api_key='<your-api-key>',
+    client_id='<your-client-id>',
+    client_secret='<your-client-secret>',
+    proxies={'https': 'http://10.10.1.10:1080'}
+)
+```
+
+Finally, if you're in an environment that provides its own SSL certificates that might not be in your trusted store,
+you can choose to ignore SSL verification altogether. This is typically not a good idea and you should seek to resolve
+certificate errors instead of ignore them.
+```python
+from directaccess import DirectAccessV2
+
+# Retry 5 times, backing off exponentially 
+# (1 second, 2 seconds, 4 seconds, 16 seconds, 256 seconds)
+d2 = DirectAccessV2(
+    api_key='<your-api-key>',
+    client_id='<your-client-id>',
+    client_secret='<your-client-secret>',
+    verify=False
+)
+```
