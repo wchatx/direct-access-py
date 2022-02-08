@@ -69,7 +69,7 @@ class BaseAPI(object):
         retries = Retry(
             total=self.retries,
             backoff_factor=self.backoff_factor,
-            method_whitelist=frozenset(["GET", "POST", "HEAD"]),
+            allowed_methods=frozenset(["GET", "POST", "HEAD"]),
             status_forcelist=self._status_forcelist,
         )
         self.session.mount("https://", HTTPAdapter(max_retries=retries))
