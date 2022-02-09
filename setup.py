@@ -45,7 +45,11 @@ setup(
     keywords=['enverus', 'drillinginfo', 'oil', 'gas'],
     packages=find_packages(exclude=('test*', )),
     package_dir={'directaccess': 'directaccess'},
-    install_requires=['requests>=2.5.1, <3', 'unicodecsv==0.14.1'],
+    install_requires=[
+        'requests>=2.16.0',
+        'unicodecsv==0.14.1',
+        'urllib3>=1.26.0',
+    ],
     extras_require={'pandas': pandas},
     cmdclass={
         'verify': VerifyVersionCommand,
